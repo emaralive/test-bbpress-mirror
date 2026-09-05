@@ -59,7 +59,7 @@
 		"postcss-scss": "~1.0.2",
 		"postcss-value-parser": "~4.2.0",
 		"sass": "~1.80.0",
-		"stylelint": "~14",
+		"stylelint": "~17",
 		"stylelint-scss": "~5",
 		"terser": "~5.31.3"
 	},
