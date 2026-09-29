@@ -61,7 +61,7 @@
 		"sass": "~1.80.0",
 		"stylelint": "~14",
 		"stylelint-scss": "~5",
-		"terser": "~5.31.3"
+		"terser": "~5.51.2"
 	},
 	"scripts": {
 		"wp-env": "wp-env",
