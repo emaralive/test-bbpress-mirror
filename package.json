@@ -55,7 +55,7 @@
 		"grunt-terser": "~2.0.0",
 		"matchdep": "~2.0.0",
 		"postcss": "~8.4.40",
-		"postcss-markdown": "~1.2.0",
+		"postcss-markdown": "~2.0.0",
 		"postcss-scss": "~1.0.2",
 		"postcss-value-parser": "~4.2.0",
 		"sass": "~1.80.0",
