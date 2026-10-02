@@ -614,25 +614,102 @@ class BBP_Tests_Forums_Template_Forum_Last_Thing extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_forum_last_reply_permalink
 	 * @covers ::bbp_get_forum_last_reply_permalink
-	 * @todo   Implement test_bbp_get_forum_last_reply_permalink().
 	 */
 	public function test_bbp_get_forum_last_reply_permalink() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$category_id = $this->factory->forum->create();
+		bbp_categorize_forum( $category_id );
+		$forum_id = $this->factory->forum->create( array( 'post_parent' => $category_id ) );
+		$topic_id = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+		$reply_id = $this->factory->reply->create( array(
+			'post_parent' => $topic_id,
+			'reply_meta'  => array( 'forum_id' => $forum_id, 'topic_id' => $topic_id ),
+		) );
+		$permalink = bbp_get_reply_permalink( $reply_id );
+
+		$this->assertSame( $reply_id, bbp_get_forum_last_reply_id( $forum_id ) );
+		$this->assertSame( $permalink, bbp_get_forum_last_reply_permalink( $forum_id ) );
+		$this->assertSame( $permalink, bbp_get_forum_last_reply_permalink( $category_id ) );
+		$this->expectOutputString( esc_url( $permalink ) );
+		bbp_forum_last_reply_permalink( $forum_id );
+	}
+
+	/**
+	 * @covers ::bbp_get_forum_last_reply_permalink
+	 */
+	public function test_bbp_get_forum_last_reply_permalink_filter() {
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+		$reply_id = $this->factory->reply->create( array(
+			'post_parent' => $topic_id,
+			'reply_meta'  => array( 'forum_id' => $forum_id, 'topic_id' => $topic_id ),
+		) );
+		$filter = function( $permalink, $filtered_forum_id, $filtered_reply_id ) use ( $forum_id, $reply_id ) {
+			$this->assertSame( bbp_get_reply_permalink( $reply_id ), $permalink );
+			$this->assertSame( $forum_id, $filtered_forum_id );
+			$this->assertSame( $reply_id, $filtered_reply_id );
+			return 'https://example.org/last-reply/';
+		};
+		add_filter( 'bbp_get_forum_last_reply_permalink', $filter, 10, 3 );
+		try {
+			$this->assertSame( 'https://example.org/last-reply/', bbp_get_forum_last_reply_permalink( $forum_id ) );
+		} finally {
+			remove_filter( 'bbp_get_forum_last_reply_permalink', $filter );
+		}
 	}
 
 	/**
 	 * @covers ::bbp_forum_last_reply_url
 	 * @covers ::bbp_get_forum_last_reply_url
-	 * @todo   Implement test_bbp_get_forum_last_reply_url().
 	 */
 	public function test_bbp_get_forum_last_reply_url() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$this->assertSame( '', bbp_get_forum_last_reply_url( $forum_id ) );
+
+		$topic_id = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+		$this->assertSame( $topic_id, bbp_get_forum_last_reply_id( $forum_id ) );
+		$this->assertSame( bbp_get_reply_url( $topic_id ), bbp_get_forum_last_reply_url( $forum_id ) );
+
+		delete_post_meta( $forum_id, '_bbp_last_reply_id' );
+		$this->assertSame( 0, bbp_get_forum_last_reply_id( $forum_id ) );
+		$this->assertSame( bbp_get_topic_permalink( $topic_id ), bbp_get_forum_last_reply_url( $forum_id ) );
+
+		$reply_id = $this->factory->reply->create( array(
+			'post_parent' => $topic_id,
+			'reply_meta'  => array( 'forum_id' => $forum_id, 'topic_id' => $topic_id ),
+		) );
+		$url = bbp_get_reply_url( $reply_id );
+		$this->assertSame( $reply_id, bbp_get_forum_last_reply_id( $forum_id ) );
+		$this->assertSame( $url, bbp_get_forum_last_reply_url( $forum_id ) );
+		$this->expectOutputString( esc_url( $url ) );
+		bbp_forum_last_reply_url( $forum_id );
+	}
+
+	/**
+	 * @covers ::bbp_get_forum_last_reply_url
+	 */
+	public function test_bbp_get_forum_last_reply_url_filter() {
+		$forum_id = $this->factory->forum->create();
+		$filter = function( $url, $filtered_forum_id, $reply_id ) use ( $forum_id ) {
+			$this->assertSame( '', $url );
+			$this->assertSame( $forum_id, $filtered_forum_id );
+			$this->assertSame( 0, $reply_id );
+			return 'https://example.org/forum/last/';
+		};
+		add_filter( 'bbp_get_forum_last_reply_url', $filter, 10, 3 );
+		try {
+			$this->assertSame( 'https://example.org/forum/last/', bbp_get_forum_last_reply_url( $forum_id ) );
+		} finally {
+			remove_filter( 'bbp_get_forum_last_reply_url', $filter );
+		}
 	}
 
 	/**
