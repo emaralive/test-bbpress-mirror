@@ -15,6 +15,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Kept closed category ancestors from being ignored by forum status checks.
 - Preserved topic subscriptions when topics and replies are edited in administration.
 
 ## 2.6.19 - 2026-09-29

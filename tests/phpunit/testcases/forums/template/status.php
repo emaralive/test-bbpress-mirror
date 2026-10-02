@@ -103,6 +103,24 @@ class BBP_Tests_Forums_Template_Status extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers ::bbp_is_forum_status
+	 */
+	public function test_bbp_is_forum_status_requires_all_category_ancestors_for_and() {
+		$root_id = $this->factory->forum->create();
+		bbp_categorize_forum( $root_id );
+		$middle_id = $this->factory->forum->create( array( 'post_parent' => $root_id ) );
+		bbp_categorize_forum( $middle_id );
+		$forum_id = $this->factory->forum->create( array( 'post_parent' => $middle_id ) );
+		bbp_close_forum( $middle_id );
+
+		$this->assertSame( array( $middle_id, $root_id ), bbp_get_forum_ancestors( $forum_id ) );
+		$this->assertFalse( bbp_is_forum_status( $forum_id, 'open', true, 'AND' ) );
+
+		bbp_close_forum( $forum_id );
+		$this->assertTrue( bbp_is_forum_status( $forum_id, 'open', true, 'OR' ) );
+	}
+
+	/**
 	 * @covers ::bbp_is_forum_public
 	 */
 	public function test_bbp_is_forum_public() {
