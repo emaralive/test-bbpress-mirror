@@ -44,6 +44,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Kept closed category ancestors from being ignored by forum status checks.
 - Preserved topic subscriptions when topics and replies are edited in administration.
 - Cache a distinct count of current-site forum-role holders for forum statistics,
   invalidating it when users or their capabilities change. Use the WordPress

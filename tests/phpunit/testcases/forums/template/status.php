@@ -16,11 +16,15 @@ class BBP_Tests_Forums_Template_Status extends BBP_UnitTestCase {
 	public function test_bbp_get_forum_status() {
 		$f = $this->factory->forum->create();
 
-		$forum = bbp_get_forum_status( $f );
-		$this->assertSame( 'open', $forum );
+		$this->assertSame( 'open', bbp_get_forum_status( $f ) );
 
 		bbp_normalize_forum( $f );
-		$this->assertSame( 'open', $forum );
+		$this->assertSame( 'open', bbp_get_forum_status( $f ) );
+
+		bbp_close_forum( $f );
+		$this->assertSame( 'closed', bbp_get_forum_status( $f ) );
+		$this->expectOutputString( 'closed' );
+		bbp_forum_status( $f );
 	}
 
 	/**
@@ -30,8 +34,10 @@ class BBP_Tests_Forums_Template_Status extends BBP_UnitTestCase {
 	public function test_bbp_get_forum_type() {
 		$f = $this->factory->forum->create();
 
-		$forum = bbp_get_forum_type( $f );
-		$this->assertSame( 'forum', $forum );
+		$this->assertSame( 'forum', bbp_get_forum_type( $f ) );
+
+		bbp_categorize_forum( $f );
+		$this->assertSame( 'category', bbp_get_forum_type( $f ) );
 	}
 
 	/**
@@ -93,13 +99,84 @@ class BBP_Tests_Forums_Template_Status extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_is_forum_status
-	 * @todo   Implement test_bbp_is_forum_status().
 	 */
 	public function test_bbp_is_forum_status() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$this->assertTrue( bbp_is_forum_status( $forum_id, 'open' ) );
+		$this->assertFalse( bbp_is_forum_status( $forum_id, 'closed' ) );
+
+		bbp_close_forum( $forum_id );
+		$this->assertTrue( bbp_is_forum_status( $forum_id, 'closed' ) );
+		$this->assertFalse( bbp_is_forum_status( $forum_id, 'open' ) );
+	}
+
+	/**
+	 * @covers ::bbp_is_forum_status
+	 */
+	public function test_bbp_is_forum_status_checks_category_ancestors() {
+		$category_id = $this->factory->forum->create();
+		bbp_categorize_forum( $category_id );
+		$forum_id = $this->factory->forum->create( array( 'post_parent' => $category_id ) );
+		bbp_close_forum( $category_id );
+
+		$this->assertTrue( bbp_is_forum_status( $forum_id, 'open', false ) );
+		$this->assertFalse( bbp_is_forum_status( $forum_id, 'open', true, 'AND' ) );
+		$this->assertTrue( bbp_is_forum_status( $forum_id, 'open', true, 'OR' ) );
+		$this->assertFalse( bbp_is_forum_status( $forum_id, 'closed', false, 'OR' ) );
+		$this->assertTrue( bbp_is_forum_status( $forum_id, 'closed', true, 'or' ) );
+		$this->assertFalse( bbp_is_forum_status( $forum_id, 'closed', true, 'AND' ) );
+	}
+
+	/**
+	 * @covers ::bbp_is_forum_status
+	 */
+	public function test_bbp_is_forum_status_requires_all_category_ancestors_for_and() {
+		$root_id = $this->factory->forum->create();
+		bbp_categorize_forum( $root_id );
+		$middle_id = $this->factory->forum->create( array( 'post_parent' => $root_id ) );
+		bbp_categorize_forum( $middle_id );
+		$forum_id = $this->factory->forum->create( array( 'post_parent' => $middle_id ) );
+		bbp_close_forum( $middle_id );
+
+		$this->assertSame( array( $middle_id, $root_id ), bbp_get_forum_ancestors( $forum_id ) );
+		$this->assertFalse( bbp_is_forum_status( $forum_id, 'open', true, 'AND' ) );
+
+		bbp_close_forum( $forum_id );
+		$this->assertTrue( bbp_is_forum_status( $forum_id, 'open', true, 'OR' ) );
+	}
+
+	/**
+	 * @covers ::bbp_is_forum_status
+	 */
+	public function test_bbp_is_forum_status_ignores_non_category_ancestors() {
+		$parent_id = $this->factory->forum->create();
+		$forum_id  = $this->factory->forum->create( array( 'post_parent' => $parent_id ) );
+		bbp_close_forum( $parent_id );
+
+		$this->assertTrue( bbp_is_forum_status( $forum_id, 'open' ) );
+		$this->assertFalse( bbp_is_forum_status( $forum_id, 'closed', true, 'OR' ) );
+	}
+
+	/**
+	 * @covers ::bbp_is_forum_status
+	 */
+	public function test_bbp_is_forum_status_filters_result_and_arguments() {
+		$forum_id = $this->factory->forum->create();
+		$filter   = function( $match, $count, $id, $status, $check_ancestors, $operator ) use ( $forum_id ) {
+			$this->assertFalse( $match );
+			$this->assertSame( 0, $count );
+			$this->assertSame( $forum_id, $id );
+			$this->assertSame( 'closed', $status );
+			$this->assertFalse( $check_ancestors );
+			$this->assertSame( 'OR', $operator );
+			return true;
+		};
+		add_filter( 'bbp_is_forum_status', $filter, 10, 6 );
+		try {
+			$this->assertTrue( bbp_is_forum_status( $forum_id, 'closed', false, 'or' ) );
+		} finally {
+			remove_filter( 'bbp_is_forum_status', $filter );
+		}
 	}
 
 	/**
