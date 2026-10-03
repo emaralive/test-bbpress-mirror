@@ -15,6 +15,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Restored assigned moderator names in forum edit forms and corrected forum type and visibility dropdown behavior.
 - Kept closed category ancestors from being ignored by forum status checks.
 - Preserved topic subscriptions when topics and replies are edited in administration.
 
