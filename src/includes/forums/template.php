@@ -2407,7 +2407,7 @@ function bbp_get_form_forum_moderators() {
 
 				// Comma separate user nicenames
 				if ( ! empty( $user_nicenames ) ) {
-					$forum_mods = implode( ', ', wp_list_pluck( $user_nicenames, 'user_nicename' ) );
+					$forum_mods = implode( ', ', $user_nicenames );
 				}
 			}
 		}
@@ -2628,9 +2628,9 @@ function bbp_get_form_forum_type_dropdown( $args = array() ) {
 			$r['forum_id'] = bbp_get_forum_id( $r['forum_id'] );
 			$r['selected'] = bbp_get_forum_type( $r['forum_id'] );
 
-		// New topic
+		// New forum
 		} else {
-			$r['selected'] = bbp_get_public_status_id();
+			$r['selected'] = 'forum';
 		}
 	}
 
@@ -2823,8 +2823,11 @@ function bbp_get_form_forum_visibility_dropdown( $args = array() ) {
 
 	<?php
 
+	// Preserve the existing type filter for visibility dropdowns.
+	$html = apply_filters( 'bbp_get_form_forum_type_dropdown', ob_get_clean(), $r, $args );
+
 	// Filter & return
-	return apply_filters( 'bbp_get_form_forum_type_dropdown', ob_get_clean(), $r, $args );
+	return apply_filters( 'bbp_get_form_forum_visibility_dropdown', $html, $r, $args );
 }
 
 /**
