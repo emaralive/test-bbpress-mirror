@@ -11,68 +11,121 @@ class BBP_Tests_Topics_Functions_Status extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_get_topic_statuses
-	 * @todo   Implement test_bbp_get_topic_statuses().
 	 */
 	public function test_bbp_get_topic_statuses() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$statuses = bbp_get_topic_statuses();
+
+		$this->assertSame( array(
+			bbp_get_public_status_id(),
+			bbp_get_closed_status_id(),
+			bbp_get_spam_status_id(),
+			bbp_get_trash_status_id(),
+			bbp_get_pending_status_id(),
+		), array_keys( $statuses ) );
+		$this->assertSame( array( 'Open', 'Closed', 'Spam', 'Trash', 'Pending' ), array_values( $statuses ) );
 	}
 
 	/**
 	 * @covers ::bbp_get_topic_types
-	 * @todo   Implement test_bbp_get_topic_types().
 	 */
 	public function test_bbp_get_topic_types() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$types = bbp_get_topic_types();
+
+		$this->assertSame( array( 'unstick', 'stick', 'super' ), array_keys( $types ) );
+		$this->assertSame( array( 'Normal', 'Sticky', 'Super Sticky' ), array_values( $types ) );
+	}
+
+	/**
+	 * @covers ::bbp_get_topic_toggles
+	 */
+	public function test_bbp_get_topic_toggles() {
+		$this->assertSame( array(
+			'bbp_toggle_topic_close',
+			'bbp_toggle_topic_stick',
+			'bbp_toggle_topic_spam',
+			'bbp_toggle_topic_trash',
+			'bbp_toggle_topic_approve',
+		), bbp_get_topic_toggles() );
+	}
+
+	/**
+	 * @covers ::bbp_get_public_topic_statuses
+	 * @covers ::bbp_get_non_public_topic_statuses
+	 */
+	public function test_bbp_get_topic_visibility_statuses() {
+		$this->assertSame( array(
+			bbp_get_public_status_id(),
+			bbp_get_closed_status_id(),
+		), bbp_get_public_topic_statuses() );
+		$this->assertSame( array(
+			bbp_get_trash_status_id(),
+			bbp_get_spam_status_id(),
+			bbp_get_pending_status_id(),
+		), bbp_get_non_public_topic_statuses() );
 	}
 
 	/**
 	 * @covers ::bbp_get_stickies
-	 * @todo   Implement test_bbp_get_stickies().
 	 */
 	public function test_bbp_get_stickies() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+
+		$this->assertSame( array(), bbp_get_stickies( $forum_id ) );
+		$this->assertTrue( bbp_stick_topic( $topic_id ) );
+		$this->assertSame( array( $topic_id ), bbp_get_stickies( $forum_id ) );
+		$this->assertSame( array(), bbp_get_stickies() );
 	}
 
 	/**
 	 * @covers ::bbp_get_super_stickies
-	 * @todo   Implement test_bbp_get_super_stickies().
 	 */
 	public function test_bbp_get_super_stickies() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+
+		$this->assertSame( array(), bbp_get_super_stickies() );
+		$this->assertTrue( bbp_stick_topic( $topic_id, true ) );
+		$this->assertSame( array( $topic_id ), bbp_get_super_stickies() );
+		$this->assertSame( array( $topic_id ), bbp_get_stickies() );
 	}
 
 	/**
 	 * @covers ::bbp_close_topic
-	 * @todo   Implement test_bbp_close_topic().
 	 */
 	public function test_bbp_close_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+
+		$this->assertSame( $topic_id, bbp_close_topic( $topic_id ) );
+		$this->assertSame( bbp_get_closed_status_id(), get_post_status( $topic_id ) );
+		$this->assertSame( bbp_get_public_status_id(), get_post_meta( $topic_id, '_bbp_status', true ) );
+		$this->assertFalse( bbp_close_topic( $topic_id ) );
 	}
 
 	/**
 	 * @covers ::bbp_open_topic
-	 * @todo   Implement test_bbp_open_topic().
 	 */
 	public function test_bbp_open_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+
+		$this->assertFalse( bbp_open_topic( $topic_id ) );
+		bbp_close_topic( $topic_id );
+		$this->assertSame( $topic_id, bbp_open_topic( $topic_id ) );
+		$this->assertSame( bbp_get_public_status_id(), get_post_status( $topic_id ) );
+		$this->assertSame( '', get_post_meta( $topic_id, '_bbp_status', true ) );
+	}
+
+	/**
+	 * @covers ::bbp_close_topic
+	 * @covers ::bbp_open_topic
+	 */
+	public function test_bbp_open_topic_restores_previous_pending_status() {
+		$topic_id = $this->factory->topic->create( array( 'post_status' => bbp_get_pending_status_id() ) );
+
+		$this->assertSame( $topic_id, bbp_close_topic( $topic_id ) );
+		$this->assertSame( bbp_get_pending_status_id(), get_post_meta( $topic_id, '_bbp_status', true ) );
+		$this->assertSame( $topic_id, bbp_open_topic( $topic_id ) );
+		$this->assertSame( bbp_get_pending_status_id(), get_post_status( $topic_id ) );
 	}
 
 	/**
@@ -543,45 +596,54 @@ class BBP_Tests_Topics_Functions_Status extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_stick_topic
-	 * @todo   Implement test_bbp_stick_topic().
 	 */
 	public function test_bbp_stick_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+
+		$this->assertFalse( bbp_stick_topic( $forum_id ) );
+		$this->assertTrue( bbp_stick_topic( $topic_id ) );
+		$this->assertSame( array( $topic_id ), bbp_get_stickies( $forum_id ) );
+		$this->assertTrue( bbp_stick_topic( $topic_id, true ) );
+		$this->assertSame( array( $topic_id ), bbp_get_super_stickies() );
 	}
 
 	/**
 	 * @covers ::bbp_approve_topic
-	 * @todo   Implement test_bbp_approve_topic().
 	 */
 	public function test_bbp_approve_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create( array( 'post_status' => bbp_get_pending_status_id() ) );
+
+		$this->assertSame( bbp_get_pending_status_id(), get_post_status( $topic_id ) );
+		$this->assertSame( $topic_id, bbp_approve_topic( $topic_id ) );
+		$this->assertSame( bbp_get_public_status_id(), get_post_status( $topic_id ) );
+		$this->assertFalse( bbp_approve_topic( $topic_id ) );
 	}
 
 	/**
 	 * @covers ::bbp_unapprove_topic
-	 * @todo   Implement test_bbp_unapprove_topic().
 	 */
 	public function test_bbp_unapprove_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+
+		$this->assertSame( $topic_id, bbp_unapprove_topic( $topic_id ) );
+		$this->assertSame( bbp_get_pending_status_id(), get_post_status( $topic_id ) );
+		$this->assertFalse( bbp_unapprove_topic( $topic_id ) );
 	}
 
 	/**
 	 * @covers ::bbp_unstick_topic
-	 * @todo   Implement test_bbp_unstick_topic().
 	 */
 	public function test_bbp_unstick_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+
+		$this->assertTrue( bbp_unstick_topic( $topic_id ) );
+		bbp_stick_topic( $topic_id );
+		$this->assertTrue( bbp_unstick_topic( $topic_id ) );
+		$this->assertSame( array(), bbp_get_stickies( $forum_id ) );
+		bbp_stick_topic( $topic_id, true );
+		$this->assertTrue( bbp_unstick_topic( $topic_id ) );
+		$this->assertSame( array(), bbp_get_super_stickies() );
 	}
 }
