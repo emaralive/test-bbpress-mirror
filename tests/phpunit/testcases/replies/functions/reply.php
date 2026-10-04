@@ -461,6 +461,57 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers ::bbp_toggle_reply
+	 */
+	public function test_bbp_toggle_reply() {
+		$topic_id    = $this->factory->topic->create();
+		$reply_id    = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		$old_request = $_REQUEST;
+		$seen        = array();
+		$record      = function ( $retval, $parsed, $original ) use ( &$seen ) {
+			$seen[] = array( $retval, $parsed, $original );
+			return $retval;
+		};
+		$args = array( 'id' => $reply_id, 'action' => 'bbp_toggle_reply_spam' );
+
+		add_filter( 'bbp_toggle_reply', $record, 10, 3 );
+
+		try {
+			$_REQUEST['_wpnonce'] = wp_create_nonce( 'spam-' . bbp_get_reply_post_type() . '_' . $reply_id );
+			$spam = bbp_toggle_reply( $args );
+			$this->assertSame( $reply_id, $spam['status'] );
+			$this->assertTrue( $spam['view_all'] );
+			$this->assertSame( bbp_get_spam_status_id(), get_post_status( $reply_id ) );
+			$this->assertSame( bbp_add_view_all( bbp_get_reply_url( $reply_id ), true ), $spam['redirect_to'] );
+
+			$unspam = bbp_toggle_reply( $args );
+			$this->assertSame( $reply_id, $unspam['status'] );
+			$this->assertFalse( $unspam['view_all'] );
+			$this->assertSame( bbp_get_public_status_id(), get_post_status( $reply_id ) );
+			$this->assertCount( 2, $seen );
+			$this->assertSame( $args, $seen[0][2] );
+			$this->assertSame( $reply_id, $seen[0][1]['id'] );
+
+			$args = array( 'id' => $reply_id, 'action' => 'bbp_toggle_reply_trash', 'sub_action' => 'trash' );
+			$_REQUEST['_wpnonce'] = wp_create_nonce( 'trash-' . bbp_get_reply_post_type() . '_' . $reply_id );
+			$trash = bbp_toggle_reply( $args );
+			$this->assertSame( $reply_id, $trash['status']->ID );
+			$this->assertTrue( $trash['view_all'] );
+			$this->assertSame( 'trash', get_post_status( $reply_id ) );
+
+			$args['sub_action'] = 'untrash';
+			$_REQUEST['_wpnonce'] = wp_create_nonce( 'untrash-' . bbp_get_reply_post_type() . '_' . $reply_id );
+			$untrash = bbp_toggle_reply( $args );
+			$this->assertSame( $reply_id, $untrash['status']->ID );
+			$this->assertFalse( $untrash['view_all'] );
+			$this->assertSame( bbp_get_public_status_id(), get_post_status( $reply_id ) );
+		} finally {
+			remove_filter( 'bbp_toggle_reply', $record, 10 );
+			$_REQUEST = $old_request;
+		}
+	}
+
+	/**
 	 * @covers ::bbp_delete_reply
 	 */
 	public function test_bbp_delete_reply() {
@@ -699,5 +750,49 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 		$this->assertSame( 0, bbp_validate_reply_to( (string) $reply_id, $reply_id ) );
 		$this->assertSame( 0, bbp_validate_reply_to( $other_id, $reply_id ) );
 		$this->assertSame( $other_id, bbp_validate_reply_to( $other_id ) );
+	}
+
+	/**
+	 * @covers ::bbp_thread_replies
+	 */
+	public function test_bbp_thread_replies() {
+		$old_allow = get_option( '_bbp_allow_threaded_replies' );
+		$old_depth = get_option( '_bbp_thread_replies_depth' );
+		$seen      = array();
+		$record    = function ( $retval, $depth, $allow ) use ( &$seen ) {
+			$seen[] = array( $retval, $depth, $allow );
+			return $retval;
+		};
+
+		add_filter( 'bbp_thread_replies', $record, 10, 3 );
+
+		try {
+			update_option( '_bbp_allow_threaded_replies', 0 );
+			update_option( '_bbp_thread_replies_depth', 3 );
+			$this->assertFalse( bbp_thread_replies() );
+
+			update_option( '_bbp_allow_threaded_replies', 1 );
+			update_option( '_bbp_thread_replies_depth', 1 );
+			$this->assertFalse( bbp_thread_replies() );
+
+			update_option( '_bbp_thread_replies_depth', 3 );
+			$this->assertTrue( bbp_thread_replies() );
+
+			add_filter( 'bbp_is_single_user_replies', '__return_true' );
+			try {
+				$this->assertFalse( bbp_thread_replies() );
+			} finally {
+				remove_filter( 'bbp_is_single_user_replies', '__return_true' );
+			}
+
+			$this->assertSame( array( false, 3, false ), $seen[0] );
+			$this->assertSame( array( false, 1, true ), $seen[1] );
+			$this->assertSame( array( true, 3, true ), $seen[2] );
+			$this->assertSame( array( false, 3, true ), $seen[3] );
+		} finally {
+			remove_filter( 'bbp_thread_replies', $record, 10 );
+			update_option( '_bbp_allow_threaded_replies', $old_allow );
+			update_option( '_bbp_thread_replies_depth', $old_depth );
+		}
 	}
 }
