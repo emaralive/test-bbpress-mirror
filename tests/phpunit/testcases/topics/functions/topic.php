@@ -85,24 +85,157 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_new_topic_handler
-	 * @todo   Implement test_bbp_new_topic_handler().
 	 */
 	public function test_bbp_new_topic_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id         = $this->factory->forum->create();
+		$old_post         = $_POST;
+		$old_request      = $_REQUEST;
+		$old_server       = $_SERVER;
+		$old_user         = get_current_user_id();
+		$old_errors       = bbpress()->errors;
+		$created_topic_id = 0;
+		$redirect         = null;
+		$record_topic     = function ( $topic_id ) use ( &$created_topic_id ) {
+			$created_topic_id = $topic_id;
+		};
+		$prevent_redirect = function ( $location ) use ( &$redirect ) {
+			$redirect = $location;
+			throw new RuntimeException( 'New topic redirect.' );
+		};
+		$home_url = wp_parse_url( home_url( '/' ) );
+
+		$_POST                   = array();
+		$_REQUEST                = array();
+		$_SERVER['HTTP_HOST']    = $home_url['host'] . ( isset( $home_url['port'] ) ? ':' . $home_url['port'] : '' );
+		$_SERVER['REQUEST_URI']  = $home_url['path'];
+		bbpress()->errors       = new WP_Error();
+		add_action( 'bbp_new_topic', $record_topic );
+		add_filter( 'wp_redirect', $prevent_redirect );
+
+		try {
+			$this->assertNull( bbp_new_topic_handler( 'invalid-action' ) );
+			$this->assertNull( bbp_new_topic_handler( 'bbp-new-topic' ) );
+			$this->assertContains( 'bbp_new_topic_nonce', bbpress()->errors->get_error_codes() );
+
+			$admin_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
+			bbp_set_user_role( $admin_id, bbp_get_keymaster_role() );
+			$this->set_current_user( $admin_id );
+			bbpress()->errors = new WP_Error();
+			$_POST = array(
+				'bbp_forum_id'      => $forum_id,
+				'bbp_topic_title'   => 'New topic',
+				'bbp_topic_content' => 'Topic content',
+			);
+			$_REQUEST['_wpnonce'] = wp_create_nonce( 'bbp-new-topic' );
+
+			try {
+				bbp_new_topic_handler( 'bbp-new-topic' );
+				$this->fail( 'A new topic should redirect.' );
+			} catch ( RuntimeException $exception ) {
+				if ( 'New topic redirect.' !== $exception->getMessage() ) {
+					throw $exception;
+				}
+			}
+
+			$this->assertSame( array(), bbpress()->errors->get_error_codes() );
+			$this->assertGreaterThan( 0, $created_topic_id );
+			$this->assertSame( $forum_id, wp_get_post_parent_id( $created_topic_id ) );
+			$this->assertSame( $admin_id, (int) get_post_field( 'post_author', $created_topic_id ) );
+			$this->assertSame( 'New topic', get_post_field( 'post_title', $created_topic_id ) );
+			$this->assertSame( 'Topic content', get_post_field( 'post_content', $created_topic_id ) );
+			$this->assertSame( bbp_get_topic_permalink( $created_topic_id ), $redirect );
+		} finally {
+			remove_filter( 'wp_redirect', $prevent_redirect );
+			remove_action( 'bbp_new_topic', $record_topic );
+			$_POST            = $old_post;
+			$_REQUEST         = $old_request;
+			$_SERVER          = $old_server;
+			bbpress()->errors = $old_errors;
+			$this->set_current_user( $old_user );
+		}
 	}
 
 	/**
 	 * @covers ::bbp_edit_topic_handler
-	 * @todo   Implement test_bbp_edit_topic_handler().
 	 */
 	public function test_bbp_edit_topic_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id         = $this->factory->forum->create();
+		$admin_id         = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		$topic_id         = $this->factory->topic->create( array(
+			'post_author' => $admin_id,
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+		$old_post         = $_POST;
+		$old_request      = $_REQUEST;
+		$old_server       = $_SERVER;
+		$old_user         = get_current_user_id();
+		$old_errors       = bbpress()->errors;
+		$redirect         = null;
+		$edited_topic_id  = 0;
+		$record_topic     = function ( $edited_id ) use ( &$edited_topic_id ) {
+			$edited_topic_id = $edited_id;
+		};
+		$prevent_redirect = function ( $location ) use ( &$redirect ) {
+			$redirect = $location;
+			throw new RuntimeException( 'Edit topic redirect.' );
+		};
+		$home_url = wp_parse_url( home_url( '/' ) );
+
+		$_POST                   = array();
+		$_REQUEST                = array();
+		$_SERVER['HTTP_HOST']    = $home_url['host'] . ( isset( $home_url['port'] ) ? ':' . $home_url['port'] : '' );
+		$_SERVER['REQUEST_URI']  = $home_url['path'];
+		bbpress()->errors       = new WP_Error();
+		add_action( 'bbp_edit_topic', $record_topic );
+		add_filter( 'wp_redirect', $prevent_redirect );
+
+		try {
+			$this->assertNull( bbp_edit_topic_handler( 'invalid-action' ) );
+			$this->assertNull( bbp_edit_topic_handler( 'bbp-edit-topic' ) );
+			$this->assertContains( 'bbp_edit_topic_id', bbpress()->errors->get_error_codes() );
+
+			$_POST['bbp_topic_id'] = $topic_id;
+			$this->set_current_user( 0 );
+			bbpress()->errors = new WP_Error();
+			$this->assertNull( bbp_edit_topic_handler( 'bbp-edit-topic' ) );
+			$this->assertContains( 'bbp_edit_topic_permission', bbpress()->errors->get_error_codes() );
+
+			bbp_set_user_role( $admin_id, bbp_get_keymaster_role() );
+			$this->set_current_user( $admin_id );
+			bbpress()->errors = new WP_Error();
+			$_POST = array(
+				'bbp_topic_id'      => $topic_id,
+				'bbp_forum_id'      => $forum_id,
+				'bbp_topic_title'   => 'Edited topic',
+				'bbp_topic_content' => 'Edited content',
+			);
+			$_REQUEST['_wpnonce'] = wp_create_nonce( 'bbp-edit-topic_' . $topic_id );
+
+			try {
+				bbp_edit_topic_handler( 'bbp-edit-topic' );
+				$this->fail( 'Editing a topic should redirect.' );
+			} catch ( RuntimeException $exception ) {
+				if ( 'Edit topic redirect.' !== $exception->getMessage() ) {
+					throw $exception;
+				}
+			}
+
+			$this->assertSame( array(), bbpress()->errors->get_error_codes() );
+			$this->assertSame( $topic_id, $edited_topic_id );
+			$this->assertSame( $forum_id, wp_get_post_parent_id( $topic_id ) );
+			$this->assertSame( 'Edited topic', get_post_field( 'post_title', $topic_id ) );
+			$this->assertSame( 'Edited content', get_post_field( 'post_content', $topic_id ) );
+			$this->assertSame( bbp_get_topic_permalink( $topic_id ), $redirect );
+		} finally {
+			remove_filter( 'wp_redirect', $prevent_redirect );
+			remove_action( 'bbp_edit_topic', $record_topic );
+			$_POST            = $old_post;
+			$_REQUEST         = $old_request;
+			$_SERVER          = $old_server;
+			bbpress()->errors = $old_errors;
+			$this->set_current_user( $old_user );
+		}
 	}
 
 	/**
@@ -296,17 +429,6 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 	}
 
 	/**
-	 * @covers ::bbp_merge_topic_handler
-	 * @todo   Implement test_bbp_merge_topic_handler().
-	 */
-	public function test_bbp_merge_topic_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
 	 * @covers ::bbp_merge_topic_count
 	 */
 	public function test_bbp_merge_topic_count() {
@@ -362,17 +484,6 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 		$this->assertSame( 1, bbp_get_user_reply_count( $source_author_id, true ) );
 		$this->assertEqualSets( array( $source_author_id, $reply_author_id, $destination_author_id ), bbp_get_topic_engagements( $destination_topic_id ) );
 		$this->assertSame( 3, bbp_get_topic_voice_count( $destination_topic_id, true ) );
-	}
-
-	/**
-	 * @covers ::bbp_split_topic_handler
-	 * @todo   Implement test_bbp_split_topic_handler().
-	 */
-	public function test_bbp_split_topic_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
 	}
 
 	/**
@@ -497,13 +608,71 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_toggle_topic_handler
-	 * @todo   Implement test_bbp_toggle_topic_handler().
 	 */
 	public function test_bbp_toggle_topic_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id         = $this->factory->forum->create();
+		$topic_id         = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$old_get          = $_GET;
+		$old_request      = $_REQUEST;
+		$old_user         = get_current_user_id();
+		$old_errors       = bbpress()->errors;
+		$redirect         = null;
+		$seen             = array();
+		$prevent_redirect = function ( $location ) use ( &$redirect ) {
+			$redirect = $location;
+			throw new RuntimeException( 'Topic toggle redirect.' );
+		};
+		$record_toggle = function ( $status, $data, $action ) use ( &$seen ) {
+			$seen[] = array( $status, $data, $action );
+		};
+
+		$_GET               = array();
+		$_REQUEST           = array();
+		bbpress()->errors   = new WP_Error();
+		add_filter( 'wp_redirect', $prevent_redirect );
+		add_action( 'bbp_toggle_topic_handler', $record_toggle, 10, 3 );
+
+		try {
+			$this->assertNull( bbp_toggle_topic_handler( 'bbp_toggle_topic_close' ) );
+			$_GET['topic_id'] = $topic_id;
+			$this->assertNull( bbp_toggle_topic_handler( 'invalid-action' ) );
+			$this->assertTrue( bbp_is_topic_open( $topic_id ) );
+
+			$_GET['topic_id'] = 999999;
+			bbp_toggle_topic_handler( 'bbp_toggle_topic_close' );
+			$this->assertContains( 'bbp_toggle_topic_missing', bbpress()->errors->get_error_codes() );
+
+			$_GET['topic_id'] = $topic_id;
+			$this->set_current_user( 0 );
+			bbp_toggle_topic_handler( 'bbp_toggle_topic_close' );
+			$this->assertContains( 'bbp_toggle_topic_permission', bbpress()->errors->get_error_codes() );
+			$this->assertTrue( bbp_is_topic_open( $topic_id ) );
+
+			$admin_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
+			bbp_set_user_role( $admin_id, bbp_get_keymaster_role() );
+			$this->set_current_user( $admin_id );
+			$_REQUEST['_wpnonce'] = wp_create_nonce( 'close-' . bbp_get_topic_post_type() . '_' . $topic_id );
+			try {
+				bbp_toggle_topic_handler( 'bbp_toggle_topic_close' );
+				$this->fail( 'Closing the topic should redirect.' );
+			} catch ( RuntimeException $exception ) {
+				if ( 'Topic toggle redirect.' !== $exception->getMessage() ) {
+					throw $exception;
+				}
+			}
+			$this->assertTrue( bbp_is_topic_closed( $topic_id ) );
+			$this->assertSame( bbp_get_topic_permalink( $topic_id ), $redirect );
+			$this->assertCount( 1, $seen );
+			$this->assertSame( $topic_id, $seen[0][1]['ID'] );
+			$this->assertSame( 'bbp_toggle_topic_close', $seen[0][2] );
+		} finally {
+			remove_action( 'bbp_toggle_topic_handler', $record_toggle, 10 );
+			remove_filter( 'wp_redirect', $prevent_redirect );
+			$_GET             = $old_get;
+			$_REQUEST         = $old_request;
+			bbpress()->errors = $old_errors;
+			$this->set_current_user( $old_user );
+		}
 	}
 
 	/**
@@ -771,12 +940,47 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_check_topic_edit
-	 * @todo   Implement test_bbp_check_topic_edit().
 	 */
 	public function test_bbp_check_topic_edit() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id         = $this->factory->topic->create();
+		$old_user         = get_current_user_id();
+		$old_topic_id     = bbpress()->current_topic_id;
+		$redirect         = null;
+		$prevent_redirect = function ( $location ) use ( &$redirect ) {
+			$redirect = $location;
+			throw new RuntimeException( 'Topic edit redirect.' );
+		};
+
+		bbpress()->current_topic_id = $topic_id;
+		add_filter( 'wp_redirect', $prevent_redirect );
+
+		try {
+			$this->set_current_user( 0 );
+			$this->assertNull( bbp_check_topic_edit() );
+			$this->assertNull( $redirect );
+
+			add_filter( 'bbp_is_topic_edit', '__return_true' );
+			try {
+				bbp_check_topic_edit();
+				$this->fail( 'Anonymous topic editing should redirect.' );
+			} catch ( RuntimeException $exception ) {
+				if ( 'Topic edit redirect.' !== $exception->getMessage() ) {
+					throw $exception;
+				}
+			}
+			$this->assertSame( bbp_get_topic_permalink( $topic_id ), $redirect );
+
+			$admin_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
+			bbp_set_user_role( $admin_id, bbp_get_keymaster_role() );
+			$this->set_current_user( $admin_id );
+			$redirect = null;
+			$this->assertNull( bbp_check_topic_edit() );
+			$this->assertNull( $redirect );
+		} finally {
+			remove_filter( 'bbp_is_topic_edit', '__return_true' );
+			remove_filter( 'wp_redirect', $prevent_redirect );
+			bbpress()->current_topic_id = $old_topic_id;
+			$this->set_current_user( $old_user );
+		}
 	}
 }
