@@ -38,6 +38,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Security
 
+- Strengthened password checks for topic and reply submissions.
 - Limited block editor topic-tag choices to public discussions in accessible forums.
 - Prevented users from creating or moving forums, topics, and replies into
   parent content they cannot read.
