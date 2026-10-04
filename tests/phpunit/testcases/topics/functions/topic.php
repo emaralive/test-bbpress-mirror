@@ -929,13 +929,27 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_display_topics_feed_rss2
-	 * @todo   Implement test_bbp_display_topics_feed_rss2().
 	 */
 	public function test_bbp_display_topics_feed_rss2() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		require_once dirname( __DIR__, 3 ) . '/includes/feed-rss2-test.php';
+
+		$feed  = new DOMDocument();
+		$xml   = bbp_test_run_feed_rss2( 'topics' );
+		$valid = $feed->loadXML( $xml );
+		$this->assertTrue( $valid, $xml );
+
+		$items = $feed->getElementsByTagName( 'item' );
+		$this->assertSame( 2, $items->length );
+		$by_title = array();
+		foreach ( $items as $item ) {
+			$title = $item->getElementsByTagName( 'title' )->item( 0 )->textContent;
+			$by_title[ $title ] = $item;
+		}
+		$this->assertArrayHasKey( 'Feed Test Topic', $by_title );
+		$this->assertArrayHasKey( 'Protected Feed Topic', $by_title );
+		$this->assertStringContainsString( 'Feed test topic content', $by_title['Feed Test Topic']->textContent );
+		$this->assertSame( 0, $by_title['Protected Feed Topic']->getElementsByTagName( 'description' )->length );
+		$this->assertStringNotContainsString( 'Protected topic secret content', $xml );
 	}
 
 	/**

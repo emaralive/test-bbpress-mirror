@@ -620,13 +620,21 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_display_replies_feed_rss2
-	 * @todo   Implement test_bbp_display_replies_feed_rss2().
 	 */
 	public function test_bbp_display_replies_feed_rss2() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		require_once dirname( __DIR__, 3 ) . '/includes/feed-rss2-test.php';
+
+		$feed  = new DOMDocument();
+		$xml   = bbp_test_run_feed_rss2( 'replies' );
+		$valid = $feed->loadXML( $xml );
+		$this->assertTrue( $valid, $xml );
+
+		$items = $feed->getElementsByTagName( 'item' );
+		$this->assertSame( 1, $items->length );
+		$this->assertSame( 'Feed Test Reply', $items->item( 0 )->getElementsByTagName( 'title' )->item( 0 )->textContent );
+		$this->assertStringContainsString( 'Feed test reply content', $items->item( 0 )->textContent );
+		$this->assertStringNotContainsString( 'Private Feed Reply', $xml );
+		$this->assertStringNotContainsString( 'Private reply secret content', $xml );
 	}
 
 	/**
