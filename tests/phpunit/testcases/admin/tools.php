@@ -17,9 +17,17 @@ class BBP_Tests_Admin_Tools extends BBP_UnitTestCase {
 
 		bbp_set_user_role( $this->keymaster_id, bbp_get_keymaster_role() );
 
+		if ( ! function_exists( 'bbp_admin' ) ) {
+			require_once BBP_PLUGIN_DIR . 'includes/admin/actions.php';
+		}
+		bbp_admin();
+
 		if ( ! function_exists( 'bbp_admin_repair_page' ) ) {
 			require_once BBP_PLUGIN_DIR . 'includes/admin/tools/repair.php';
 			require_once BBP_PLUGIN_DIR . 'includes/admin/tools/upgrade.php';
+		}
+		if ( ! function_exists( 'bbp_admin_reset_page' ) ) {
+			require_once BBP_PLUGIN_DIR . 'includes/admin/tools/reset.php';
 		}
 	}
 
@@ -1128,24 +1136,39 @@ class BBP_Tests_Admin_Tools extends BBP_UnitTestCase {
 	}
 
 	/**
-	 * @covers ::bbp_admin_reset
-	 * @todo   Implement test_bbp_admin_reset().
+	 * @covers ::bbp_admin_reset_page
 	 */
-	public function test_bbp_admin_reset() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+	public function test_bbp_admin_reset_page() {
+		ob_start();
+		bbp_admin_reset_page();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'name="bbpress-are-you-sure"', $output );
+		$this->assertStringContainsString( 'name="_wpnonce"', $output );
+		$this->assertStringContainsString( 'Reset bbPress', $output );
 	}
 
 	/**
 	 * @covers ::bbp_admin_reset_handler
-	 * @todo   Implement test_bbp_admin_reset_handler().
 	 */
 	public function test_bbp_admin_reset_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_method = isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : null;
+		$old_post   = $_POST;
+
+		try {
+			$_SERVER['REQUEST_METHOD'] = 'GET';
+			$_POST = array( 'bbpress-are-you-sure' => '1' );
+			$this->assertNull( bbp_admin_reset_handler() );
+			$_SERVER['REQUEST_METHOD'] = 'POST';
+			$_POST = array();
+			$this->assertNull( bbp_admin_reset_handler() );
+		} finally {
+			$_POST = $old_post;
+			if ( null === $old_method ) {
+				unset( $_SERVER['REQUEST_METHOD'] );
+			} else {
+				$_SERVER['REQUEST_METHOD'] = $old_method;
+			}
+		}
 	}
 }
