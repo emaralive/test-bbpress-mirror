@@ -12,13 +12,24 @@ class BBP_Tests_Topics_Template_Authors extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_topic_author
 	 * @covers ::bbp_get_topic_author
-	 * @todo   Implement test_bbp_get_topic_author().
 	 */
 	public function test_bbp_get_topic_author() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id  = $this->factory->user->create( array( 'display_name' => 'Topic Author' ) );
+		$topic_id = $this->factory->topic->create( array( 'post_author' => $user_id ) );
+
+		$this->assertSame( 'Topic Author', bbp_get_topic_author( $topic_id ) );
+		$this->expectOutputString( 'Topic Author' );
+		bbp_topic_author( $topic_id );
+	}
+
+	/**
+	 * @covers ::bbp_get_topic_author
+	 */
+	public function test_bbp_get_topic_author_uses_anonymous_name() {
+		$topic_id = $this->factory->topic->create( array( 'post_author' => 0 ) );
+		update_post_meta( $topic_id, '_bbp_anonymous_name', 'Guest Author' );
+
+		$this->assertSame( 'Guest Author', bbp_get_topic_author( $topic_id ) );
 	}
 
 	/**
@@ -55,60 +66,118 @@ class BBP_Tests_Topics_Template_Authors extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_topic_author_avatar
 	 * @covers ::bbp_get_topic_author_avatar
-	 * @todo   Implement test_bbp_get_topic_author_avatar().
 	 */
 	public function test_bbp_get_topic_author_avatar() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id  = $this->factory->user->create();
+		$topic_id = $this->factory->topic->create( array( 'post_author' => $user_id ) );
+		$avatar   = bbp_get_topic_author_avatar( $topic_id, 64 );
+
+		$this->assertSame( get_avatar( $user_id, 64 ), $avatar );
+		$this->expectOutputString( $avatar );
+		bbp_topic_author_avatar( $topic_id, 64 );
+	}
+
+	/**
+	 * @covers ::bbp_get_topic_author_avatar
+	 */
+	public function test_bbp_get_topic_author_avatar_uses_anonymous_email() {
+		$topic_id = $this->factory->topic->create( array( 'post_author' => 0 ) );
+		update_post_meta( $topic_id, '_bbp_anonymous_email', 'guest@example.org' );
+
+		$this->assertSame( get_avatar( 'guest@example.org', 64 ), bbp_get_topic_author_avatar( $topic_id, 64 ) );
 	}
 
 	/**
 	 * @covers ::bbp_topic_author_link
 	 * @covers ::bbp_get_topic_author_link
-	 * @todo   Implement test_bbp_get_topic_author_link().
 	 */
 	public function test_bbp_get_topic_author_link() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id  = $this->factory->user->create( array( 'display_name' => 'Topic Author' ) );
+		$topic_id = $this->factory->topic->create( array( 'post_author' => $user_id ) );
+		$args     = array( 'post_id' => $topic_id, 'type' => 'name' );
+		$link     = bbp_get_topic_author_link( $args );
+
+		$this->assertStringContainsString( 'Topic Author', $link );
+		$this->assertStringContainsString( 'bbp-author-name', $link );
+		$this->assertStringContainsString( esc_url( bbp_get_user_profile_url( $user_id ) ), $link );
+		$this->expectOutputString( $link );
+		bbp_topic_author_link( $args );
+	}
+
+	/**
+	 * @covers ::bbp_get_topic_author_link
+	 */
+	public function test_bbp_get_topic_author_link_does_not_link_anonymous_name() {
+		$topic_id = $this->factory->topic->create( array( 'post_author' => 0 ) );
+		update_post_meta( $topic_id, '_bbp_anonymous_name', 'Guest Author' );
+		update_post_meta( $topic_id, '_bbp_anonymous_website', 'https://example.org/guest' );
+		$link     = bbp_get_topic_author_link( array( 'post_id' => $topic_id, 'type' => 'name' ) );
+
+		$this->assertStringContainsString( 'Guest Author', $link );
+		$this->assertStringNotContainsString( '<a ', $link );
 	}
 
 	/**
 	 * @covers ::bbp_topic_author_url
 	 * @covers ::bbp_get_topic_author_url
-	 * @todo   Implement test_bbp_get_topic_author_url().
 	 */
 	public function test_bbp_get_topic_author_url() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id  = $this->factory->user->create();
+		$topic_id = $this->factory->topic->create( array( 'post_author' => $user_id ) );
+
+		$this->assertSame( bbp_get_user_profile_url( $user_id ), bbp_get_topic_author_url( $topic_id ) );
+		$this->expectOutputString( esc_url( bbp_get_user_profile_url( $user_id ) ) );
+		bbp_topic_author_url( $topic_id );
+	}
+
+	/**
+	 * @covers ::bbp_get_topic_author_url
+	 */
+	public function test_bbp_get_topic_author_url_uses_anonymous_website() {
+		$topic_id = $this->factory->topic->create( array( 'post_author' => 0 ) );
+
+		$this->assertSame( '', bbp_get_topic_author_url( $topic_id ) );
+		update_post_meta( $topic_id, '_bbp_anonymous_website', 'https://example.org/guest' );
+		$this->assertSame( 'https://example.org/guest', bbp_get_topic_author_url( $topic_id ) );
 	}
 
 	/**
 	 * @covers ::bbp_topic_author_email
 	 * @covers ::bbp_get_topic_author_email
-	 * @todo   Implement test_bbp_get_topic_author_email().
 	 */
 	public function test_bbp_get_topic_author_email() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id  = $this->factory->user->create( array( 'user_email' => 'topic-author@example.org' ) );
+		$topic_id = $this->factory->topic->create( array( 'post_author' => $user_id ) );
+
+		$this->assertSame( 'topic-author@example.org', bbp_get_topic_author_email( $topic_id ) );
+		$this->expectOutputString( 'topic-author@example.org' );
+		bbp_topic_author_email( $topic_id );
+	}
+
+	/**
+	 * @covers ::bbp_get_topic_author_email
+	 */
+	public function test_bbp_get_topic_author_email_uses_anonymous_meta() {
+		$topic_id = $this->factory->topic->create( array( 'post_author' => 0 ) );
+
+		$this->assertSame( '', bbp_get_topic_author_email( $topic_id ) );
+		update_post_meta( $topic_id, '_bbp_anonymous_email', 'guest@example.org' );
+		$this->assertSame( 'guest@example.org', bbp_get_topic_author_email( $topic_id ) );
 	}
 
 	/**
 	 * @covers ::bbp_topic_author_role
 	 * @covers ::bbp_get_topic_author_role
-	 * @todo   Implement test_bbp_get_topic_author_role().
 	 */
 	public function test_bbp_get_topic_author_role() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id  = $this->factory->user->create();
+		$topic_id = $this->factory->topic->create( array( 'post_author' => $user_id ) );
+		$args     = array( 'topic_id' => $topic_id );
+		$role     = bbp_get_user_display_role( $user_id );
+		$expected = '<div class="bbp-author-role bbp-role-' . sanitize_key( $role ) . '">' . $role . '</div>';
+
+		$this->assertSame( $expected, bbp_get_topic_author_role( $args ) );
+		$this->expectOutputString( $expected );
+		bbp_topic_author_role( $args );
 	}
 }
