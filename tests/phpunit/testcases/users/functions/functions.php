@@ -90,13 +90,31 @@
 
 	/**
 	 * @covers ::bbp_set_current_anonymous_user_data
-	 * @todo   Implement test_bbp_set_current_anonymous_user_data().
+	 */
+	public function test_bbp_set_current_anonymous_user_data_rejects_invalid_input() {
+		$called   = 0;
+		$lifetime = function ( $value ) use ( &$called ) {
+			++$called;
+			return 60;
+		};
+
+		add_filter( 'comment_cookie_lifetime', $lifetime );
+
+		try {
+			$this->assertNull( bbp_set_current_anonymous_user_data() );
+			$this->assertNull( bbp_set_current_anonymous_user_data( 'not an array' ) );
+			$this->assertSame( 0, $called );
+		} finally {
+			remove_filter( 'comment_cookie_lifetime', $lifetime );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_set_current_anonymous_user_data
+	 * @todo   Test the Set-Cookie headers from an HTTP request.
 	 */
 	public function test_bbp_set_current_anonymous_user_data() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->markTestIncomplete( 'The successful cookie path requires an HTTP test harness.' );
 	}
 
 	/**
@@ -198,26 +216,106 @@
 		$this->assertTrue( $r );
 	}
 
- 	/**
+	/**
 	 * @covers ::bbp_edit_user_handler
-	 * @todo   Implement test_bbp_edit_user_handler().
 	 */
 	public function test_bbp_edit_user_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id       = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		$other_id      = $this->factory->user->create();
+		$old_user      = get_current_user_id();
+		$old_post      = $_POST;
+		$old_request   = $_REQUEST;
+		$old_method    = $_SERVER['REQUEST_METHOD'];
+		$old_errors    = bbpress()->errors;
+		$old_displayed = bbpress()->displayed_user;
+		$displayed     = function () use ( $user_id ) {
+			return $user_id;
+		};
+
+		$this->set_current_user( $user_id );
+		bbpress()->displayed_user = get_userdata( $user_id );
+		bbpress()->errors         = new WP_Error();
+		add_filter( 'bbp_get_displayed_user_id', $displayed );
+
+		try {
+			$this->assertNull( bbp_edit_user_handler( 'other' ) );
+			$this->assertFalse( bbp_has_errors() );
+
+			$_SERVER['REQUEST_METHOD'] = 'POST';
+			$_REQUEST['_wpnonce']      = 'invalid';
+			bbp_edit_user_handler( 'bbp-update-user' );
+			$this->assertContains( 'bbp_update_user_nonce', bbpress()->errors->get_error_codes() );
+
+			bbpress()->errors = new WP_Error();
+			$_REQUEST['_wpnonce'] = wp_create_nonce( 'update-user_' . $user_id );
+			unset( $_POST['email'] );
+			bbp_edit_user_handler( 'bbp-update-user' );
+			$this->assertContains( 'bbp_user_email_empty', bbpress()->errors->get_error_codes() );
+
+			bbpress()->errors = new WP_Error();
+			$_POST['email']   = 'not-an-email';
+			bbp_edit_user_handler( 'bbp-update-user' );
+			$this->assertContains( 'bbp_user_email_invalid', bbpress()->errors->get_error_codes() );
+
+			bbpress()->errors = new WP_Error();
+			$_POST['email']   = get_userdata( $other_id )->user_email;
+			bbp_edit_user_handler( 'bbp-update-user' );
+			$this->assertContains( 'bbp_user_email_taken', bbpress()->errors->get_error_codes() );
+		} finally {
+			remove_filter( 'bbp_get_displayed_user_id', $displayed );
+			$this->set_current_user( $old_user );
+			bbpress()->displayed_user = $old_displayed;
+			bbpress()->errors         = $old_errors;
+			$_POST                     = $old_post;
+			$_REQUEST                  = $old_request;
+			$_SERVER['REQUEST_METHOD']  = $old_method;
+		}
 	}
 
 	/**
 	 * @covers ::bbp_user_email_change_handler
-	 * @todo   Implement test_bbp_user_email_change_handler().
 	 */
 	public function test_bbp_user_email_change_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id     = $this->factory->user->create();
+		$other_id    = $this->factory->user->create();
+		$old_get     = $_GET;
+		$old_request = $_REQUEST;
+		$old_errors  = bbpress()->errors;
+		$displayed   = function () use ( $user_id ) {
+			return $user_id;
+		};
+		$home_edit = '__return_true';
+		$key       = '_new_email';
+		$pending   = array( 'hash' => 'valid-hash', 'newemail' => get_userdata( $other_id )->user_email );
+
+		add_filter( 'bbp_get_displayed_user_id', $displayed );
+		add_filter( 'bbp_is_user_home_edit', $home_edit );
+		bbpress()->errors = new WP_Error();
+
+		try {
+			update_user_meta( $user_id, $key, $pending );
+			$_GET['newuseremail'] = 'wrong-hash';
+			$this->assertNull( bbp_user_email_change_handler( 'other' ) );
+			$this->assertNull( bbp_user_email_change_handler( 'bbp-update-user-email' ) );
+			$this->assertSame( $pending, get_user_meta( $user_id, $key, true ) );
+
+			$_GET['newuseremail'] = 'valid-hash';
+			bbp_user_email_change_handler( 'bbp-update-user-email' );
+			$this->assertContains( 'bbp_user_email_taken', bbpress()->errors->get_error_codes() );
+			$this->assertSame( '', get_user_meta( $user_id, $key, true ) );
+
+			bbpress()->errors = new WP_Error();
+			$_GET = array( 'dismiss' => $user_id . $key );
+			unset( $_REQUEST['_wpnonce'] );
+			bbp_user_email_change_handler( 'bbp-update-user-email' );
+			$this->assertContains( 'bbp_dismiss_new_email_nonce', bbpress()->errors->get_error_codes() );
+		} finally {
+			remove_filter( 'bbp_get_displayed_user_id', $displayed );
+			remove_filter( 'bbp_is_user_home_edit', $home_edit );
+			bbpress()->errors = $old_errors;
+			$_GET             = $old_get;
+			$_REQUEST         = $old_request;
+		}
 	}
 
 	/**
