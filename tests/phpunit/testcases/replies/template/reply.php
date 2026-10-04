@@ -36,13 +36,17 @@ class BBP_Tests_Replies_Template_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_get_reply
-	 * @todo   Implement test_bbp_get_reply().
 	 */
 	public function test_bbp_get_reply() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		$forum_id = $this->factory->forum->create();
+
+		$this->assertSame( $reply_id, bbp_get_reply( $reply_id )->ID );
+		$this->assertSame( $reply_id, bbp_get_reply( get_post( $reply_id ) )->ID );
+		$this->assertSame( $reply_id, bbp_get_reply( $reply_id, ARRAY_A )['ID'] );
+		$this->assertTrue( in_array( $reply_id, bbp_get_reply( $reply_id, ARRAY_N ), true ) );
+		$this->assertNull( bbp_get_reply( $forum_id ) );
 	}
 
 	/**
@@ -574,24 +578,34 @@ class BBP_Tests_Replies_Template_Reply extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_reply_class
 	 * @covers ::bbp_get_reply_class
-	 * @todo   Implement test_bbp_get_reply_class().
 	 */
 	public function test_bbp_get_reply_class() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		$classes  = bbp_get_reply_class( $reply_id, array( 'extra-reply-class' ) );
+
+		$this->assertStringContainsString( 'bbp-parent-topic-' . $topic_id, $classes );
+		$this->assertStringContainsString( 'bbp-parent-forum-' . $forum_id, $classes );
+		$this->assertStringContainsString( 'bbp-reply-position-', $classes );
+		$this->assertStringContainsString( 'extra-reply-class', $classes );
+		$this->expectOutputString( $classes );
+		bbp_reply_class( $reply_id, array( 'extra-reply-class' ) );
 	}
 
 	/**
 	 * @covers ::bbp_topic_pagination_count
 	 * @covers ::bbp_get_topic_pagination_count
-	 * @todo   Implement test_bbp_get_topic_pagination_count().
 	 */
 	public function test_bbp_get_topic_pagination_count() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$this->factory->reply->create_many( 2, array( 'post_parent' => $topic_id ) );
+		bbp_has_replies( array( 'post_type' => bbp_get_reply_post_type(), 'post_parent' => $topic_id ) );
+		$count = bbp_get_topic_pagination_count();
+
+		$this->assertStringContainsString( 'Viewing', $count );
+		$this->assertStringContainsString( '2 total', $count );
+		$this->expectOutputString( $count );
+		bbp_topic_pagination_count();
 	}
 }
