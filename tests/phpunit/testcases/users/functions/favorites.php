@@ -165,12 +165,38 @@ class BBP_Tests_Users_Functions_Favorites extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_favorites_handler
-	 * @todo   Implement test_bbp_favorites_handler().
+	 * @todo   Cover successful toggles in an integration test because bbp_redirect() exits.
 	 */
 	public function test_bbp_favorites_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_get     = $_GET;
+		$old_request = $_REQUEST;
+		$old_user    = get_current_user_id();
+		$user_id     = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		$forum_id    = $this->factory->forum->create();
+		$topic_id    = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+
+		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
+		$this->set_current_user( $user_id );
+
+		try {
+			unset( $_GET['object_id'] );
+			$this->assertFalse( bbp_favorites_handler( 'bbp_favorite_add' ) );
+
+			$_GET['object_id'] = $topic_id;
+			$this->assertFalse( bbp_favorites_handler( 'unsupported' ) );
+
+			$_REQUEST['_wpnonce'] = 'invalid';
+			$this->assertFalse( bbp_favorites_handler( 'bbp_favorite_add' ) );
+			$this->assertSame( 'bbp_favorite_nonce', bbpress()->errors->get_error_code() );
+			$this->assertFalse( bbp_is_user_favorite( $user_id, $topic_id ) );
+		} finally {
+			bbpress()->errors->remove( 'bbp_favorite_nonce' );
+			$_GET = $old_get;
+			$_REQUEST = $old_request;
+			$this->set_current_user( $old_user );
+		}
 	}
 }

@@ -357,23 +357,66 @@ class BBP_Tests_Users_Functions_Subscriptions extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_forum_subscriptions_handler
-	 * @todo   Implement test_bbp_forum_subscriptions_handler().
+	 * @todo   Cover successful toggles in an integration test because bbp_redirect() exits.
 	 */
 	public function test_bbp_forum_subscriptions_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_get     = $_GET;
+		$old_request = $_REQUEST;
+		$old_user    = get_current_user_id();
+		$user_id     = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		$forum_id    = $this->factory->forum->create();
+
+		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
+		$this->set_current_user( $user_id );
+
+		try {
+			$_GET['object_id'] = $forum_id;
+			$_REQUEST['_wpnonce'] = 'invalid';
+			$this->assertFalse( bbp_forum_subscriptions_handler( 'bbp_subscribe' ) );
+			$this->assertSame( 'bbp_subscription_object_id', bbpress()->errors->get_error_code() );
+			$this->assertFalse( bbp_is_user_subscribed_to_forum( $user_id, $forum_id ) );
+		} finally {
+			bbpress()->errors->remove( 'bbp_subscription_object_id' );
+			$_GET = $old_get;
+			$_REQUEST = $old_request;
+			$this->set_current_user( $old_user );
+		}
 	}
 
 	/**
 	 * @covers ::bbp_subscriptions_handler
-	 * @todo   Implement test_bbp_subscriptions_handler().
+	 * @todo   Cover successful toggles in an integration test because bbp_redirect() exits.
 	 */
 	public function test_bbp_subscriptions_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_get     = $_GET;
+		$old_request = $_REQUEST;
+		$old_user    = get_current_user_id();
+		$user_id     = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		$forum_id    = $this->factory->forum->create();
+		$topic_id    = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+
+		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
+		$this->set_current_user( $user_id );
+
+		try {
+			unset( $_GET['object_id'] );
+			$this->assertFalse( bbp_subscriptions_handler( 'bbp_subscribe' ) );
+
+			$_GET['object_id'] = $topic_id;
+			$this->assertFalse( bbp_subscriptions_handler( 'unsupported' ) );
+
+			$_REQUEST['_wpnonce'] = 'invalid';
+			$this->assertFalse( bbp_subscriptions_handler( 'bbp_subscribe' ) );
+			$this->assertSame( 'bbp_subscription_object_id', bbpress()->errors->get_error_code() );
+			$this->assertFalse( bbp_is_user_subscribed_to_topic( $user_id, $topic_id ) );
+		} finally {
+			bbpress()->errors->remove( 'bbp_subscription_object_id' );
+			$_GET = $old_get;
+			$_REQUEST = $old_request;
+			$this->set_current_user( $old_user );
+		}
 	}
 }
