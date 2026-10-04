@@ -900,24 +900,28 @@ class BBP_Tests_Admin_Tools extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_admin_repair_user_roles
-	 * @todo   Implement test_bbp_admin_repair_user_roles().
 	 */
 	public function test_bbp_admin_repair_user_roles() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id = $this->factory->user->create( array( 'role' => 'subscriber' ) );
+		bbp_set_user_role( $user_id, bbp_get_blocked_role() );
+
+		$this->assertSame( 0, bbp_admin_repair_user_roles()[0] );
+		$this->assertSame( bbp_get_default_role(), bbp_get_user_role( $user_id ) );
 	}
 
 	/**
 	 * @covers ::bbp_admin_repair_freshness
-	 * @todo   Implement test_bbp_admin_repair_freshness().
 	 */
 	public function test_bbp_admin_repair_freshness() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		update_post_meta( $topic_id, '_bbp_last_reply_id', 999 );
+		update_post_meta( $forum_id, '_bbp_last_topic_id', 999 );
+
+		$this->assertSame( 0, bbp_admin_repair_freshness()[0] );
+		$this->assertSame( (string) $reply_id, get_post_meta( $topic_id, '_bbp_last_reply_id', true ) );
+		$this->assertSame( (string) $topic_id, get_post_meta( $forum_id, '_bbp_last_topic_id', true ) );
 	}
 
 	/**
@@ -951,13 +955,16 @@ class BBP_Tests_Admin_Tools extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_admin_repair_forum_visibility
-	 * @todo   Implement test_bbp_admin_repair_forum_visibility().
 	 */
 	public function test_bbp_admin_repair_forum_visibility() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$private_id = $this->factory->forum->create( array( 'post_status' => bbp_get_private_status_id() ) );
+		$hidden_id  = $this->factory->forum->create( array( 'post_status' => bbp_get_hidden_status_id() ) );
+		update_option( '_bbp_private_forums', array() );
+		update_option( '_bbp_hidden_forums', array() );
+
+		$this->assertSame( 0, bbp_admin_repair_forum_visibility()[0] );
+		$this->assertContains( $private_id, get_option( '_bbp_private_forums' ) );
+		$this->assertContains( $hidden_id, get_option( '_bbp_hidden_forums' ) );
 	}
 
 	/**
