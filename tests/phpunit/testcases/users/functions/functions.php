@@ -17,46 +17,75 @@
 
 	/**
 	 * @covers ::bbp_redirect_login
-	 * @todo   Implement test_bbp_redirect_login().
 	 */
 	public function test_bbp_redirect_login() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assertSame( home_url(), bbp_redirect_login() );
+		$this->assertSame( home_url(), bbp_redirect_login( admin_url() ) );
+		$this->assertSame( 'https://example.org/target', bbp_redirect_login( home_url(), 'https://example.org/target' ) );
+		$this->assertSame( 'https://example.org/manual', bbp_redirect_login( 'https://example.org/manual' ) );
 	}
 
 	/**
 	 * @covers ::bbp_is_anonymous
-	 * @todo   Implement test_bbp_is_anonymous().
 	 */
 	public function test_bbp_is_anonymous() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_user = get_current_user_id();
+		add_filter( 'bbp_allow_anonymous', '__return_true' );
+
+		try {
+			$this->set_current_user( 0 );
+			$this->assertTrue( bbp_is_anonymous() );
+			$this->set_current_user( $this->factory->user->create() );
+			$this->assertFalse( bbp_is_anonymous() );
+			$this->set_current_user( 0 );
+			remove_filter( 'bbp_allow_anonymous', '__return_true' );
+			$this->assertFalse( bbp_is_anonymous() );
+		} finally {
+			remove_filter( 'bbp_allow_anonymous', '__return_true' );
+			$this->set_current_user( $old_user );
+		}
 	}
 
 	/**
 	 * @covers ::bbp_current_anonymous_user_data
-	 * @todo   Implement test_bbp_current_anonymous_user_data().
 	 */
 	public function test_bbp_current_anonymous_user_data() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$name = 'comment_author_' . COOKIEHASH;
+		$old  = isset( $_COOKIE[ $name ] ) ? $_COOKIE[ $name ] : null;
+
+		try {
+			$_COOKIE[ $name ] = 'A & B';
+			$this->expectOutputString( 'A &amp; B' );
+			bbp_current_anonymous_user_data( 'name' );
+		} finally {
+			if ( null === $old ) {
+				unset( $_COOKIE[ $name ] );
+			} else {
+				$_COOKIE[ $name ] = $old;
+			}
+		}
 	}
 
 	/**
 	 * @covers ::bbp_get_current_anonymous_user_data
-	 * @todo   Implement test_bbp_get_current_anonymous_user_data().
 	 */
 	public function test_bbp_get_current_anonymous_user_data() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$name = 'comment_author_' . COOKIEHASH;
+		$old  = isset( $_COOKIE[ $name ] ) ? $_COOKIE[ $name ] : null;
+
+		try {
+			$_COOKIE[ $name ] = 'Guest';
+			$this->assertSame( 'Guest', bbp_get_current_anonymous_user_data( 'name' ) );
+			$this->assertSame( 'Guest', bbp_get_current_anonymous_user_data( 'comment_author' ) );
+			$this->assertSame( 'Guest', bbp_get_current_anonymous_user_data()['comment_author'] );
+			$this->assertIsArray( bbp_get_current_anonymous_user_data( 'unknown' ) );
+		} finally {
+			if ( null === $old ) {
+				unset( $_COOKIE[ $name ] );
+			} else {
+				$_COOKIE[ $name ] = $old;
+			}
+		}
 	}
 
 	/**
@@ -72,24 +101,42 @@
 
 	/**
 	 * @covers ::bbp_current_author_ip
-	 * @todo   Implement test_bbp_current_author_ip().
 	 */
 	public function test_bbp_current_author_ip() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_address = isset( $_SERVER['REMOTE_ADDR'] ) ? $_SERVER['REMOTE_ADDR'] : null;
+
+		try {
+			unset( $_SERVER['REMOTE_ADDR'] );
+			$this->assertSame( '127.0.0.1', bbp_current_author_ip() );
+			$_SERVER['REMOTE_ADDR'] = '2001:db8::1<script>';
+			$this->assertSame( '2001:db8::1c', bbp_current_author_ip() );
+		} finally {
+			if ( null === $old_address ) {
+				unset( $_SERVER['REMOTE_ADDR'] );
+			} else {
+				$_SERVER['REMOTE_ADDR'] = $old_address;
+			}
+		}
 	}
 
 	/**
 	 * @covers ::bbp_current_author_ua
-	 * @todo   Implement test_bbp_current_author_ua().
 	 */
 	public function test_bbp_current_author_ua() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? $_SERVER['HTTP_USER_AGENT'] : null;
+
+		try {
+			unset( $_SERVER['HTTP_USER_AGENT'] );
+			$this->assertSame( '', bbp_current_author_ua() );
+			$_SERVER['HTTP_USER_AGENT'] = str_repeat( 'a', 255 );
+			$this->assertSame( str_repeat( 'a', 254 ), bbp_current_author_ua() );
+		} finally {
+			if ( null === $old_agent ) {
+				unset( $_SERVER['HTTP_USER_AGENT'] );
+			} else {
+				$_SERVER['HTTP_USER_AGENT'] = $old_agent;
+			}
+		}
 	}
 
 	/**
