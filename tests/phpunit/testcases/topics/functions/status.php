@@ -646,4 +646,28 @@ class BBP_Tests_Topics_Functions_Status extends BBP_UnitTestCase {
 		$this->assertTrue( bbp_unstick_topic( $topic_id ) );
 		$this->assertSame( array(), bbp_get_super_stickies() );
 	}
+
+	/**
+	 * @covers ::bbp_unstick_topic
+	 */
+	public function test_bbp_unstick_topic_uses_strict_offset() {
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$this->assertTrue( bbp_stick_topic( $topic_id ) );
+		$add_string_id = function ( $stickies, $id ) use ( $forum_id, $topic_id ) {
+			if ( $forum_id === $id ) {
+				array_unshift( $stickies, (string) $topic_id );
+			}
+
+			return $stickies;
+		};
+		add_filter( 'bbp_get_stickies', $add_string_id, 10, 2 );
+
+		try {
+			$this->assertTrue( bbp_unstick_topic( $topic_id ) );
+			$this->assertSame( array( (string) $topic_id ), get_post_meta( $forum_id, '_bbp_sticky_topics', true ) );
+		} finally {
+			remove_filter( 'bbp_get_stickies', $add_string_id, 10 );
+		}
+	}
 }
