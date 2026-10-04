@@ -124,24 +124,50 @@ class BBP_Tests_Topic_Tags_Template_Topic_Tag extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_topic_tag_edit_link
 	 * @covers ::bbp_get_topic_tag_edit_link
-	 * @todo   Implement test_bbp_get_topic_tag_edit_link().
 	 */
 	public function test_bbp_get_topic_tag_edit_link() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$term = wp_insert_term( 'Alpha', bbp_get_topic_tag_tax_id(), array( 'slug' => 'alpha' ) );
+		$this->assertFalse( is_wp_error( $term ) );
+		$link = bbp_get_topic_tag_link( 'alpha' );
+		$this->assertSame( '', bbp_get_topic_tag_edit_link( 'missing-tag' ) );
+
+		add_filter( 'bbp_pretty_urls', '__return_false' );
+		try {
+			$edit_link = add_query_arg( array( bbp_get_edit_rewrite_id() => '1' ), $link );
+			$this->assertSame( $edit_link, bbp_get_topic_tag_edit_link( 'alpha' ) );
+			$this->expectOutputString( esc_url( $edit_link ) );
+			bbp_topic_tag_edit_link( 'alpha' );
+			remove_filter( 'bbp_pretty_urls', '__return_false' );
+			add_filter( 'bbp_pretty_urls', '__return_true' );
+			$this->assertSame( user_trailingslashit( trailingslashit( $link ) . bbp_get_edit_slug() ), bbp_get_topic_tag_edit_link( 'alpha' ) );
+		} finally {
+			remove_filter( 'bbp_pretty_urls', '__return_false' );
+			remove_filter( 'bbp_pretty_urls', '__return_true' );
+		}
 	}
 
 	/**
 	 * @covers ::bbp_topic_tag_description
 	 * @covers ::bbp_get_topic_tag_description
-	 * @todo   Implement test_bbp_get_topic_tag_description().
 	 */
 	public function test_bbp_get_topic_tag_description() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$term = wp_insert_term( 'Alpha', bbp_get_topic_tag_tax_id(), array( 'slug' => 'alpha', 'description' => 'Alpha description' ) );
+		$this->assertFalse( is_wp_error( $term ) );
+		$args = array( 'tag' => 'alpha', 'before' => '<p>', 'after' => '</p>' );
+		$seen = array();
+		$filter = function ( $description, $parsed, $original, $tag, $term ) use ( &$seen ) {
+			$seen[] = array( $tag, $term->term_id );
+			return $description;
+		};
+		add_filter( 'bbp_get_topic_tag_description', $filter, 10, 5 );
+
+		try {
+			$this->assertSame( '<p>Alpha description</p>', bbp_get_topic_tag_description( $args ) );
+			$this->assertSame( array( array( 'alpha', $term['term_id'] ) ), $seen );
+			$this->expectOutputString( '<p>Alpha description</p>' );
+			bbp_topic_tag_description( $args );
+		} finally {
+			remove_filter( 'bbp_get_topic_tag_description', $filter, 10 );
+		}
 	}
 }

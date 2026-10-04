@@ -3785,8 +3785,8 @@ function bbp_topic_tag_edit_link( $tag = '' ) {
 
 			// Pretty or ugly URL
 			$retval = bbp_use_pretty_urls()
-				? user_trailingslashit( trailingslashit( bbp_get_topic_tag_link() ) . bbp_get_edit_slug() )
-				: add_query_arg( array( bbp_get_edit_rewrite_id() => '1' ), bbp_get_topic_tag_link() );
+				? user_trailingslashit( trailingslashit( bbp_get_topic_tag_link( $tag ) ) . bbp_get_edit_slug() )
+				: add_query_arg( array( bbp_get_edit_rewrite_id() => '1' ), bbp_get_topic_tag_link( $tag ) );
 
 		// No link
 		} else {
@@ -3828,10 +3828,11 @@ function bbp_get_topic_tag_description( $args = array() ) {
 	);
 
 	// Get the term
-	if ( ! empty( $r['tag'] ) ) {
-		$term = get_term_by( 'slug', $r['tag'], bbp_get_topic_tag_tax_id() );
+	$tag = $r['tag'];
+	if ( ! empty( $tag ) ) {
+		$term = get_term_by( 'slug', $tag, bbp_get_topic_tag_tax_id() );
 	} else {
-		$tag  = $r['tag'] = get_query_var( 'term' );
+		$tag = $r['tag'] = get_query_var( 'term' );
 		$term = get_queried_object();
 	}
 
