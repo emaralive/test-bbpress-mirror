@@ -353,17 +353,6 @@ class BBP_Tests_Admin_Tools extends BBP_UnitTestCase {
 	}
 
 	/**
-	 * @covers ::bbp_admin_repair_group_forum_relationship
-	 * @todo   Implement test_bbp_admin_repair_group_forum_relationship().
-	 */
-	public function test_bbp_admin_repair_group_forum_relationship() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
 	 * @covers ::bbp_admin_repair_forum_topic_count
 	 */
 	public function test_bbp_admin_repair_forum_topic_count() {

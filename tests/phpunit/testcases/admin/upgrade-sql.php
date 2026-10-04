@@ -51,4 +51,21 @@ class BBP_Tests_Admin_Upgrade_SQL extends BBP_UnitTestCase {
 		$this->assertSame( (string) $forum_id, $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM `{$this->groupmeta_table}` WHERE group_id = %d", 1 ) ) );
 		$this->assertSame( 'unrelated', $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM `{$this->groupmeta_table}` WHERE group_id = %d", 2 ) ) );
 	}
+
+	/**
+	 * @covers ::bbp_admin_upgrade_group_forum_relationships
+	 */
+	public function test_group_forum_upgrade_hides_private_group_forum() {
+		global $wpdb;
+
+		$forum_id = $this->factory->forum->create();
+		update_post_meta( $forum_id, '_bbp_old_forum_id', '42' );
+		$wpdb->insert( $this->groups_table, array( 'id' => 7, 'status' => 'private' ) );
+		$wpdb->insert( $this->groupmeta_table, array( 'group_id' => 7, 'meta_key' => 'forum_id', 'meta_value' => '42' ) );
+
+		$this->assertSame( 0, bbp_admin_upgrade_group_forum_relationships()[0] );
+		$this->assertSame( (string) $forum_id, $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM `{$this->groupmeta_table}` WHERE group_id = %d", 7 ) ) );
+		$this->assertSame( array( 7 ), get_post_meta( $forum_id, '_bbp_group_ids', true ) );
+		$this->assertSame( bbp_get_hidden_status_id(), bbp_get_forum_visibility( $forum_id ) );
+	}
 }
