@@ -9,57 +9,115 @@ class BBP_Tests_Core_Update extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_is_install
-	 * @todo   Implement test_bbp_is_install().
 	 */
 	public function test_bbp_is_install() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		delete_option( '_bbp_db_version' );
+		$this->assertTrue( bbp_is_install() );
+
+		update_option( '_bbp_db_version', bbp_get_db_version() );
+		$this->assertFalse( bbp_is_install() );
 	}
 
 	/**
 	 * @covers ::bbp_is_update
-	 * @todo   Implement test_bbp_is_update().
 	 */
 	public function test_bbp_is_update() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$current_version = (int) bbp_get_db_version();
+		update_option( '_bbp_db_version', $current_version - 1 );
+		$this->assertTrue( bbp_is_update() );
+
+		update_option( '_bbp_db_version', $current_version );
+		$this->assertFalse( bbp_is_update() );
+
+		update_option( '_bbp_db_version', $current_version + 1 );
+		$this->assertFalse( bbp_is_update() );
 	}
 
 	/**
 	 * @covers ::bbp_is_activation
-	 * @todo   Implement test_bbp_is_activation().
 	 */
 	public function test_bbp_is_activation() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		global $pagenow;
+
+		$old_screen  = isset( $GLOBALS['current_screen'] ) ? $GLOBALS['current_screen'] : null;
+		$old_pagenow = $pagenow;
+		$old_request = $_REQUEST;
+		$old_get     = $_GET;
+		$old_post    = $_POST;
+		$basename    = bbpress()->basename;
+
+		try {
+			set_current_screen( 'plugins' );
+			$pagenow = 'plugins.php';
+			$_REQUEST['action'] = 'activate';
+			$_GET['plugin'] = $basename;
+			$this->assertTrue( bbp_is_activation() );
+
+			$_GET['plugin'] = 'another/plugin.php';
+			$this->assertFalse( bbp_is_activation() );
+
+			$_REQUEST['action'] = '-1';
+			$_REQUEST['action2'] = 'activate-selected';
+			$_POST['checked'] = array( $basename );
+			$this->assertTrue( bbp_is_activation() );
+
+			$pagenow = 'index.php';
+			$this->assertFalse( bbp_is_activation() );
+		} finally {
+			$GLOBALS['current_screen'] = $old_screen;
+			$pagenow = $old_pagenow;
+			$_REQUEST = $old_request;
+			$_GET = $old_get;
+			$_POST = $old_post;
+		}
 	}
 
 	/**
 	 * @covers ::bbp_is_deactivation
-	 * @todo   Implement test_bbp_is_deactivation().
 	 */
 	public function test_bbp_is_deactivation() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		global $pagenow;
+
+		$old_screen  = isset( $GLOBALS['current_screen'] ) ? $GLOBALS['current_screen'] : null;
+		$old_pagenow = $pagenow;
+		$old_request = $_REQUEST;
+		$old_get     = $_GET;
+		$old_post    = $_POST;
+		$basename    = bbpress()->basename;
+
+		try {
+			set_current_screen( 'plugins' );
+			$pagenow = 'plugins.php';
+			$_REQUEST['action'] = 'deactivate';
+			$_GET['plugin'] = $basename;
+			$this->assertTrue( bbp_is_deactivation() );
+
+			$_GET['plugin'] = 'another/plugin.php';
+			$this->assertFalse( bbp_is_deactivation() );
+
+			$_REQUEST['action'] = '-1';
+			$_REQUEST['action2'] = 'deactivate-selected';
+			$_POST['checked'] = array( $basename );
+			$this->assertTrue( bbp_is_deactivation() );
+
+			$pagenow = 'index.php';
+			$this->assertFalse( bbp_is_deactivation() );
+		} finally {
+			$GLOBALS['current_screen'] = $old_screen;
+			$pagenow = $old_pagenow;
+			$_REQUEST = $old_request;
+			$_GET = $old_get;
+			$_POST = $old_post;
+		}
 	}
 
 	/**
 	 * @covers ::bbp_version_bump
-	 * @todo   Implement test_bbp_version_bump().
 	 */
 	public function test_bbp_version_bump() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		update_option( '_bbp_db_version', 1 );
+		bbp_version_bump();
+		$this->assertSame( (int) bbp_get_db_version(), (int) bbp_get_db_version_raw() );
 	}
 
 	/**
@@ -226,13 +284,15 @@ class BBP_Tests_Core_Update extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_version_updater
-	 * @todo   Implement test_bbp_version_updater().
 	 */
 	public function test_bbp_version_updater() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		delete_option( '_bbp_db_version' );
+		update_option( 'rewrite_rules', array( 'sentinel' => 'saved' ) );
+
+		bbp_version_updater();
+
+		$this->assertSame( (int) bbp_get_db_version(), (int) bbp_get_db_version_raw() );
+		$this->assertFalse( get_option( 'rewrite_rules' ) );
 	}
 
 	/**
@@ -250,23 +310,54 @@ class BBP_Tests_Core_Update extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_add_activation_redirect
-	 * @todo   Implement test_bbp_add_activation_redirect().
 	 */
 	public function test_bbp_add_activation_redirect() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_user = get_current_user_id();
+		$old_get  = $_GET;
+		$user_id  = $this->factory->user->create();
+		$this->set_current_user( $user_id );
+
+		try {
+			bbp_add_activation_redirect();
+			$this->assertTrue( (bool) get_user_option( '_bbp_activation_redirect', $user_id ) );
+
+			delete_user_option( $user_id, '_bbp_activation_redirect' );
+			$_GET['activate-multi'] = '1';
+			bbp_add_activation_redirect();
+			$this->assertFalse( (bool) get_user_option( '_bbp_activation_redirect', $user_id ) );
+		} finally {
+			$_GET = $old_get;
+			$this->set_current_user( $old_user );
+		}
 	}
 
 	/**
 	 * @covers ::bbp_make_current_user_keymaster
-	 * @todo   Implement test_bbp_make_current_user_keymaster().
 	 */
 	public function test_bbp_make_current_user_keymaster() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_user = get_current_user_id();
+		$user_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		if ( is_multisite() ) {
+			grant_super_admin( $user_id );
+		}
+		$this->set_current_user( $user_id );
+		$forum_role = bbp_get_user_role( $user_id );
+		if ( $forum_role ) {
+			get_userdata( $user_id )->remove_role( $forum_role );
+		}
+
+		try {
+			$this->assertFalse( bbp_get_user_role( $user_id ) );
+			bbp_make_current_user_keymaster();
+			$this->assertSame( bbp_get_keymaster_role(), bbp_get_user_role( $user_id ) );
+
+			bbp_make_current_user_keymaster();
+			$this->assertSame( bbp_get_keymaster_role(), bbp_get_user_role( $user_id ) );
+		} finally {
+			$this->set_current_user( $old_user );
+			if ( is_multisite() ) {
+				revoke_super_admin( $user_id );
+			}
+		}
 	}
 }
