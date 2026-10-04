@@ -14,59 +14,66 @@ class BBP_Tests_Topic_Tags_Template_Topic_Tag extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_topic_tag_list
 	 * @covers ::bbp_get_topic_tag_list
-	 * @todo   Implement test_bbp_get_topic_tag_list().
 	 */
 	public function test_bbp_get_topic_tag_list() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$args = array( 'before' => '<p>', 'sep' => ' | ', 'after' => '</p>', 'none' => 'No tags' );
+		$this->assertSame( 'No tags', bbp_get_topic_tag_list( $topic_id, $args ) );
+
+		wp_set_object_terms( $topic_id, array( 'alpha', 'beta' ), bbp_get_topic_tag_tax_id() );
+		$html = bbp_get_topic_tag_list( $topic_id, $args );
+		$this->assertStringStartsWith( '<p>', $html );
+		$this->assertStringContainsString( '>alpha</a> | <a ', $html );
+		$this->assertStringEndsWith( '</p>', $html );
+		$this->expectOutputString( $html );
+		bbp_topic_tag_list( $topic_id, $args );
+
+		add_filter( 'bbp_allow_topic_tags', '__return_false' );
+		try {
+			$this->assertSame( '', bbp_get_topic_tag_list( $topic_id, $args ) );
+		} finally {
+			remove_filter( 'bbp_allow_topic_tags', '__return_false' );
+		}
 	}
 
 	/**
 	 * @covers ::bbp_topic_tag_tax_id
 	 * @covers ::bbp_get_topic_tag_tax_id
-	 * @todo   Implement test_bbp_get_topic_tag_tax_id().
 	 */
 	public function test_bbp_get_topic_tag_tax_id() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assertSame( bbpress()->topic_tag_tax_id, bbp_get_topic_tag_tax_id() );
+		$this->expectOutputString( bbpress()->topic_tag_tax_id );
+		bbp_topic_tag_tax_id();
 	}
 
 	/**
 	 * @covers ::bbp_get_topic_tag_tax_labels
-	 * @todo   Implement test_bbp_get_topic_tag_tax_labels().
 	 */
 	public function test_bbp_get_topic_tag_tax_labels() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$labels = bbp_get_topic_tag_tax_labels();
+		$this->assertSame( 'Topic Tags', $labels['name'] );
+		$this->assertSame( 'Topic Tag', $labels['singular_name'] );
+		$this->assertArrayHasKey( 'not_found', $labels );
 	}
 
 	/**
 	 * @covers ::bbp_get_topic_tag_tax_rewrite
-	 * @todo   Implement test_bbp_get_topic_tag_tax_rewrite().
 	 */
 	public function test_bbp_get_topic_tag_tax_rewrite() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assertSame( array( 'slug' => bbp_get_topic_tag_tax_slug(), 'with_front' => false ), bbp_get_topic_tag_tax_rewrite() );
 	}
 
 	/**
 	 * @covers ::bbp_topic_tag_id
 	 * @covers ::bbp_get_topic_tag_id
-	 * @todo   Implement test_bbp_get_topic_tag_id().
 	 */
 	public function test_bbp_get_topic_tag_id() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$term = wp_insert_term( 'Alpha', bbp_get_topic_tag_tax_id(), array( 'slug' => 'alpha' ) );
+		$this->assertFalse( is_wp_error( $term ) );
+		$this->assertSame( $term['term_id'], bbp_get_topic_tag_id( 'alpha' ) );
+		$this->assertSame( 0, bbp_get_topic_tag_id( 'missing-tag' ) );
+		$this->expectOutputString( (string) $term['term_id'] );
+		bbp_topic_tag_id( 'alpha' );
 	}
 
 	/**
@@ -100,25 +107,28 @@ class BBP_Tests_Topic_Tags_Template_Topic_Tag extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_topic_tag_slug
 	 * @covers ::bbp_get_topic_tag_slug
-	 * @todo   Implement test_bbp_get_topic_tag_slug().
 	 */
 	public function test_bbp_get_topic_tag_slug() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$term = wp_insert_term( 'Alpha', bbp_get_topic_tag_tax_id(), array( 'slug' => 'alpha' ) );
+		$this->assertFalse( is_wp_error( $term ) );
+		$this->assertSame( 'alpha', bbp_get_topic_tag_slug( 'alpha' ) );
+		$this->assertSame( '', bbp_get_topic_tag_slug( 'missing-tag' ) );
+		$this->expectOutputString( 'alpha' );
+		bbp_topic_tag_slug( 'alpha' );
 	}
 
 	/**
 	 * @covers ::bbp_topic_tag_link
 	 * @covers ::bbp_get_topic_tag_link
-	 * @todo   Implement test_bbp_get_topic_tag_link().
 	 */
 	public function test_bbp_get_topic_tag_link() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$term = wp_insert_term( 'Alpha', bbp_get_topic_tag_tax_id(), array( 'slug' => 'alpha' ) );
+		$this->assertFalse( is_wp_error( $term ) );
+		$url = get_term_link( $term['term_id'], bbp_get_topic_tag_tax_id() );
+		$this->assertSame( $url, bbp_get_topic_tag_link( 'alpha' ) );
+		$this->assertSame( '', bbp_get_topic_tag_link( 'missing-tag' ) );
+		$this->expectOutputString( esc_url( $url ) );
+		bbp_topic_tag_link( 'alpha' );
 	}
 
 	/**
