@@ -9,15 +9,34 @@
  */
 class BBP_Tests_Common_Functions_Query extends BBP_UnitTestCase {
 
- 	/**
+	/**
 	 * @covers ::bbp_query_post_parent__in
-	 * @todo   Implement test_bbp_query_post_parent__in().
 	 */
 	public function test_bbp_query_post_parent__in() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		global $wp;
+
+		$old_query_vars = $wp->private_query_vars;
+		$wp->private_query_vars = array_diff( $old_query_vars, array( 'post_parent__in' ) );
+		$query = (object) array( 'query_vars' => array( 'post_parent' => '', 'post_parent__in' => array( '12', '34' ), 'post_parent__not_in' => array() ) );
+
+		try {
+			$this->assertSame( 'base', bbp_query_post_parent__in( 'base' ) );
+			$this->assertSame( 'base AND ' . bbp_db()->posts . '.post_parent IN (12,34)', bbp_query_post_parent__in( 'base', $query ) );
+
+			$query->query_vars['post_parent__in'] = array();
+			$query->query_vars['post_parent__not_in'] = array( '56', '78' );
+			$this->assertSame( 'base AND ' . bbp_db()->posts . '.post_parent NOT IN (56,78)', bbp_query_post_parent__in( 'base', $query ) );
+
+			$query->query_vars['post_parent'] = 12;
+			$this->assertSame( 'base', bbp_query_post_parent__in( 'base', $query ) );
+
+			$wp->private_query_vars = $old_query_vars;
+			$wp->private_query_vars[] = 'post_parent__in';
+			$query->query_vars['post_parent'] = '';
+			$this->assertSame( 'base', bbp_query_post_parent__in( 'base', $query ) );
+		} finally {
+			$wp->private_query_vars = $old_query_vars;
+		}
 	}
 
 	/**

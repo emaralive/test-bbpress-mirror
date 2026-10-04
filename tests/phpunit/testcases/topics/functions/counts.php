@@ -694,12 +694,21 @@ class BBP_Tests_Topics_Functions_Counts extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_update_topic_anonymous_reply_count
-	 * @todo   Implement test_bbp_update_topic_anonymous_reply_count().
 	 */
 	public function test_bbp_update_topic_anonymous_reply_count() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id  = $this->factory->user->create();
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id, 'post_author' => $user_id ) );
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id, 'post_author' => 0 ) );
+		$this->factory->reply->create( array( 'post_parent' => $topic_id, 'post_author' => $user_id ) );
+		$this->factory->reply->create( array( 'post_parent' => $topic_id, 'post_author' => 0, 'post_status' => bbp_get_spam_status_id() ) );
+
+		$this->assertSame( 1, bbp_update_topic_anonymous_reply_count( $topic_id ) );
+		$this->assertSame( '1', get_post_meta( $topic_id, '_bbp_anonymous_reply_count', true ) );
+		$this->assertSame( 1, bbp_update_topic_anonymous_reply_count( $reply_id ) );
+
+		wp_update_post( array( 'ID' => $topic_id, 'post_author' => 0 ) );
+		$this->assertSame( 2, bbp_update_topic_anonymous_reply_count( $topic_id ) );
+		$this->assertSame( '2', get_post_meta( $topic_id, '_bbp_anonymous_reply_count', true ) );
 	}
 }
