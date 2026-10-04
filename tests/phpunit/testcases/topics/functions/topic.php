@@ -425,46 +425,39 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_get_topic_statuses
-	 * @todo   Implement test_bbp_get_topic_statuses().
 	 */
 	public function test_bbp_get_topic_statuses() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$statuses = bbp_get_topic_statuses();
+		$this->assertSame( array( 'Open', 'Closed', 'Spam', 'Trash', 'Pending' ), array_values( $statuses ) );
+		$this->assertSame( array( bbp_get_public_status_id(), bbp_get_closed_status_id(), bbp_get_spam_status_id(), bbp_get_trash_status_id(), bbp_get_pending_status_id() ), array_keys( $statuses ) );
 	}
 
 	/**
 	 * @covers ::bbp_get_topic_types
-	 * @todo   Implement test_bbp_get_topic_types().
 	 */
 	public function test_bbp_get_topic_types() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assertSame( array( 'unstick' => 'Normal', 'stick' => 'Sticky', 'super' => 'Super Sticky' ), bbp_get_topic_types() );
 	}
 
 	/**
 	 * @covers ::bbp_get_stickies
-	 * @todo   Implement test_bbp_get_stickies().
 	 */
 	public function test_bbp_get_stickies() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$this->assertSame( array(), bbp_get_stickies( $forum_id ) );
+		update_post_meta( $forum_id, '_bbp_sticky_topics', array( (string) $topic_id, (string) $topic_id ) );
+		$this->assertSame( array( $topic_id ), bbp_get_stickies( $forum_id ) );
 	}
 
 	/**
 	 * @covers ::bbp_get_super_stickies
-	 * @todo   Implement test_bbp_get_super_stickies().
 	 */
 	public function test_bbp_get_super_stickies() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		update_option( '_bbp_super_sticky_topics', array( (string) $topic_id, (string) $topic_id ) );
+		$this->assertSame( array( $topic_id ), bbp_get_super_stickies() );
+		$this->assertSame( array( $topic_id ), bbp_get_stickies() );
 	}
 
 	/**
@@ -480,24 +473,30 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_remove_topic_from_all_favorites
-	 * @todo   Implement test_bbp_remove_topic_from_all_favorites().
 	 */
 	public function test_bbp_remove_topic_from_all_favorites() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$user_ids = $this->factory->user->create_many( 2 );
+		foreach ( $user_ids as $user_id ) {
+			bbp_add_user_favorite( $user_id, $topic_id );
+		}
+		$this->assertEqualSets( $user_ids, bbp_get_topic_favoriters( $topic_id ) );
+		bbp_remove_topic_from_all_favorites( $topic_id );
+		$this->assertEmpty( bbp_get_topic_favoriters( $topic_id ) );
 	}
 
 	/**
 	 * @covers ::bbp_remove_topic_from_all_subscriptions
-	 * @todo   Implement test_bbp_remove_topic_from_all_subscriptions().
 	 */
 	public function test_bbp_remove_topic_from_all_subscriptions() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$user_ids = $this->factory->user->create_many( 2 );
+		foreach ( $user_ids as $user_id ) {
+			bbp_add_user_topic_subscription( $user_id, $topic_id );
+		}
+		$this->assertEqualSets( $user_ids, bbp_get_topic_subscribers( $topic_id ) );
+		bbp_remove_topic_from_all_subscriptions( $topic_id );
+		$this->assertEmpty( bbp_get_topic_subscribers( $topic_id ) );
 	}
 
 	/**
@@ -528,13 +527,12 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_update_topic_topic_id
-	 * @todo   Implement test_bbp_update_topic_topic_id().
 	 */
 	public function test_bbp_update_topic_topic_id() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		delete_post_meta( $topic_id, '_bbp_topic_id' );
+		$this->assertSame( $topic_id, bbp_update_topic_topic_id( $topic_id ) );
+		$this->assertSame( (string) $topic_id, get_post_meta( $topic_id, '_bbp_topic_id', true ) );
 	}
 
 	/**
@@ -692,35 +690,50 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_get_topics_per_page
-	 * @todo   Implement test_bbp_get_topics_per_page().
 	 */
 	public function test_bbp_get_topics_per_page() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		update_option( '_bbp_topics_per_page', 0 );
+		$this->assertSame( 12, bbp_get_topics_per_page( 12 ) );
+		update_option( '_bbp_topics_per_page', '22' );
+		$this->assertSame( 22, bbp_get_topics_per_page() );
 	}
 
 	/**
 	 * @covers ::bbp_get_topics_per_rss_page
-	 * @todo   Implement test_bbp_get_topics_per_rss_page().
 	 */
 	public function test_bbp_get_topics_per_rss_page() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		update_option( '_bbp_topics_per_rss_page', 0 );
+		$this->assertSame( 18, bbp_get_topics_per_rss_page( 18 ) );
+		update_option( '_bbp_topics_per_rss_page', '30' );
+		$this->assertSame( 30, bbp_get_topics_per_rss_page() );
 	}
 
 	/**
 	 * @covers ::bbp_topic_content_autoembed
-	 * @todo   Implement test_bbp_topic_content_autoembed().
 	 */
 	public function test_bbp_topic_content_autoembed() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		global $wp_embed;
+
+		$callback = array( $wp_embed, 'autoembed' );
+		$priority = has_filter( 'bbp_get_topic_content', $callback );
+		remove_filter( 'bbp_get_topic_content', $callback, $priority );
+		add_filter( 'bbp_use_autoembed', '__return_false' );
+
+		try {
+			bbp_topic_content_autoembed();
+			$this->assertFalse( has_filter( 'bbp_get_topic_content', $callback ) );
+			remove_filter( 'bbp_use_autoembed', '__return_false' );
+			add_filter( 'bbp_use_autoembed', '__return_true' );
+			bbp_topic_content_autoembed();
+			$this->assertSame( 2, has_filter( 'bbp_get_topic_content', $callback ) );
+		} finally {
+			remove_filter( 'bbp_use_autoembed', '__return_false' );
+			remove_filter( 'bbp_use_autoembed', '__return_true' );
+			remove_filter( 'bbp_get_topic_content', $callback, 2 );
+			if ( false !== $priority ) {
+				add_filter( 'bbp_get_topic_content', $callback, $priority );
+			}
+		}
 	}
 
 	/**
