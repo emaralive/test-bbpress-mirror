@@ -3458,7 +3458,7 @@ function bbp_unstick_topic( $topic_id = 0 ) {
 	$super    = bbp_is_topic_super_sticky( $topic_id );
 	$forum_id = empty( $super ) ? bbp_get_topic_forum_id( $topic_id ) : 0;
 	$stickies = bbp_get_stickies( $forum_id );
-	$offset   = array_search( $topic_id, $stickies );
+	$offset   = array_search( $topic_id, $stickies, true );
 
 	do_action( 'bbp_unstick_topic', $topic_id );
 
