@@ -950,11 +950,10 @@ function bbp_get_moderators( $object_id = 0, $object_type = 'post' ) {
 
 	// Get object moderators
 	} else {
-		$users = get_users(
-			array(
-				'include' => bbp_get_moderator_ids( $object_id, $object_type ),
-			)
-		);
+		$user_ids = bbp_get_moderator_ids( $object_id, $object_type );
+		$users    = ! empty( $user_ids )
+			? get_users( array( 'include' => $user_ids ) )
+			: array();
 	}
 
 	// Filter & return

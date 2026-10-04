@@ -15,6 +15,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Kept objects without assigned moderators from listing unrelated users.
 - Used explicitly supplied topic tags in edit links and passed their slug to description filters.
 - Prevented threaded reply ancestry from including an invalid parent and avoided redundant reply-position writes.
 - Restored assigned moderator names in forum edit forms and corrected forum type and visibility dropdown behavior.
