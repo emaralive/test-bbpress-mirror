@@ -10,6 +10,30 @@
 class BBP_Tests_Forums_Functions_Forum extends BBP_UnitTestCase {
 
 	/**
+	 * Assert a forum lifecycle wrapper validates its target and fires its action.
+	 *
+	 * @param string $function Wrapper function.
+	 * @param string $action   Action name.
+	 */
+	protected function assert_forum_action_dispatches( $function, $action ) {
+		$forum_id = $this->factory->forum->create();
+		$observed = array();
+		$callback = function( $id ) use ( &$observed ) {
+			$observed[] = $id;
+		};
+
+		add_action( $action, $callback );
+		try {
+			$this->assertFalse( call_user_func( $function, 0 ) );
+			call_user_func( $function, $forum_id );
+		} finally {
+			remove_action( $action, $callback );
+		}
+
+		$this->assertSame( array( $forum_id ), $observed );
+	}
+
+	/**
 	 * @group canonical
 	 * @covers ::bbp_insert_forum
 	 */
@@ -155,13 +179,20 @@ class BBP_Tests_Forums_Functions_Forum extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_remove_forum_from_all_subscriptions
-	 * @todo   Implement test_bbp_remove_forum_from_all_subscriptions().
 	 */
 	public function test_bbp_remove_forum_from_all_subscriptions() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$user_ids = $this->factory->user->create_many( 2 );
+
+		foreach ( $user_ids as $user_id ) {
+			$this->assertTrue( bbp_add_user_subscription( $user_id, $forum_id ) );
+			$this->assertTrue( bbp_is_user_subscribed( $user_id, $forum_id ) );
+		}
+
+		bbp_remove_forum_from_all_subscriptions( $forum_id );
+		foreach ( $user_ids as $user_id ) {
+			$this->assertFalse( bbp_is_user_subscribed( $user_id, $forum_id ) );
+		}
 	}
 
 	/**
@@ -255,89 +286,134 @@ class BBP_Tests_Forums_Functions_Forum extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_trash_forum_topics
-	 * @todo   Implement test_bbp_trash_forum_topics().
 	 */
 	public function test_bbp_trash_forum_topics() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+		$spam_id = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'post_status' => bbp_get_spam_status_id(),
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+
+		bbp_trash_forum_topics( $forum_id );
+
+		$this->assertSame( 'trash', get_post_status( $topic_id ) );
+		$this->assertSame( bbp_get_spam_status_id(), get_post_status( $spam_id ) );
+		$this->assertSame( array( $topic_id ), get_post_meta( $forum_id, '_bbp_pre_trashed_topics', true ) );
 	}
 
 	/**
 	 * @covers ::bbp_untrash_forum_topics
-	 * @todo   Implement test_bbp_untrash_forum_topics().
 	 */
 	public function test_bbp_untrash_forum_topics() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+		$already_trashed_id = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+		wp_trash_post( $already_trashed_id );
+		bbp_trash_forum_topics( $forum_id );
 
-	/**
-	 * @covers ::bbp_delete_forum
-	 * @todo   Implement test_bbp_delete_forum().
-	 */
-	public function test_bbp_delete_forum() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assertSame( 'trash', get_post_status( $topic_id ) );
+		bbp_untrash_forum_topics( $forum_id );
+		$this->assertSame( bbp_get_public_status_id(), get_post_status( $topic_id ) );
+		$this->assertSame( 'trash', get_post_status( $already_trashed_id ) );
 	}
 
 	/**
 	 * @covers ::bbp_trash_forum
-	 * @todo   Implement test_bbp_trash_forum().
+	 * @covers ::bbp_untrash_forum
+	 * @covers ::bbp_trash_forum_topics
+	 * @covers ::bbp_untrash_forum_topics
+	 * @covers ::bbp_remove_forum_from_all_subscriptions
+	 */
+	public function test_forum_trash_restores_only_its_topics_and_removes_subscriptions() {
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+		$already_trashed_id = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+		$user_id = $this->factory->user->create();
+		$this->assertTrue( bbp_add_user_subscription( $user_id, $forum_id ) );
+		wp_trash_post( $already_trashed_id );
+
+		wp_trash_post( $forum_id );
+		$this->assertSame( 'trash', get_post_status( $forum_id ) );
+		$this->assertSame( 'trash', get_post_status( $topic_id ) );
+		$this->assertFalse( bbp_is_user_subscribed( $user_id, $forum_id ) );
+
+		wp_untrash_post( $forum_id );
+		$this->assertSame( bbp_get_public_status_id(), get_post_status( $forum_id ) );
+		$this->assertSame( bbp_get_public_status_id(), get_post_status( $topic_id ) );
+		$this->assertSame( 'trash', get_post_status( $already_trashed_id ) );
+	}
+
+	/**
+	 * @covers ::bbp_delete_forum
+	 */
+	public function test_bbp_delete_forum() {
+		$this->assert_forum_action_dispatches( 'bbp_delete_forum', 'bbp_delete_forum' );
+	}
+
+	/**
+	 * @covers ::bbp_trash_forum
 	 */
 	public function test_bbp_trash_forum() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_forum_action_dispatches( 'bbp_trash_forum', 'bbp_trash_forum' );
 	}
 
 	/**
 	 * @covers ::bbp_untrash_forum
-	 * @todo   Implement test_bbp_untrash_forum().
 	 */
 	public function test_bbp_untrash_forum() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_forum_action_dispatches( 'bbp_untrash_forum', 'bbp_untrash_forum' );
 	}
 
 	/**
 	 * @covers ::bbp_deleted_forum
-	 * @todo   Implement test_bbp_deleted_forum().
 	 */
 	public function test_bbp_deleted_forum() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$forum    = get_post( $forum_id );
+		$observed = array();
+		$callback = function( $id, $post ) use ( &$observed ) {
+			$observed[] = array( $id, $post );
+		};
+
+		add_action( 'bbp_deleted_forum', $callback, 10, 2 );
+		try {
+			$this->assertFalse( bbp_deleted_forum( 0 ) );
+			bbp_deleted_forum( $forum_id, $forum );
+		} finally {
+			remove_action( 'bbp_deleted_forum', $callback );
+		}
+
+		$this->assertSame( array( array( $forum_id, $forum ) ), $observed );
 	}
 
 	/**
 	 * @covers ::bbp_trashed_forum
-	 * @todo   Implement test_bbp_trashed_forum().
 	 */
 	public function test_bbp_trashed_forum() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_forum_action_dispatches( 'bbp_trashed_forum', 'bbp_trashed_forum' );
 	}
 
 	/**
 	 * @covers ::bbp_untrashed_forum
-	 * @todo   Implement test_bbp_untrashed_forum().
 	 */
 	public function test_bbp_untrashed_forum() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_forum_action_dispatches( 'bbp_untrashed_forum', 'bbp_untrashed_forum' );
 	}
 }
