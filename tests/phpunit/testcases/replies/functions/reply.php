@@ -9,6 +9,24 @@
  */
 class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
+	private function assert_reply_action( $function, $hook ) {
+		$topic_id = $this->factory->topic->create();
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		$seen     = array();
+		$callback = function ( $id ) use ( &$seen ) {
+			$seen[] = $id;
+		};
+		add_action( $hook, $callback );
+
+		try {
+			$this->assertFalse( $function( PHP_INT_MAX ) );
+			$function( $reply_id );
+			$this->assertSame( array( $reply_id ), $seen );
+		} finally {
+			remove_action( $hook, $callback );
+		}
+	}
+
 	/**
 	 * @group canonical
 	 * @covers ::bbp_insert_reply
@@ -75,13 +93,30 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_update_reply
-	 * @todo   Implement test_bbp_update_reply().
 	 */
 	public function test_bbp_update_reply() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_user = get_current_user_id();
+		$user_id  = $this->factory->user->create();
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id, 'post_author' => $user_id ) );
+		update_post_meta( $reply_id, '_edit_lock', 'stale' );
+		delete_post_meta( $reply_id, '_bbp_forum_id' );
+		delete_post_meta( $reply_id, '_bbp_topic_id' );
+		$this->set_current_user( $user_id );
+
+		try {
+			bbp_update_reply( $reply_id, $topic_id, $forum_id, array(), $user_id, true );
+			$this->assertSame( (string) $user_id, get_post_meta( $reply_id, '_edit_last', true ) );
+			$this->assertFalse( metadata_exists( 'post', $reply_id, '_edit_lock' ) );
+			$this->assertSame( (string) $forum_id, get_post_meta( $reply_id, '_bbp_forum_id', true ) );
+			$this->assertSame( (string) $topic_id, get_post_meta( $reply_id, '_bbp_topic_id', true ) );
+			delete_post_meta( $reply_id, '_bbp_author_ip' );
+			bbp_update_reply( $reply_id, $topic_id, $forum_id, array(), $user_id, false );
+			$this->assertNotEmpty( get_post_meta( $reply_id, '_bbp_author_ip', true ) );
+		} finally {
+			$this->set_current_user( $old_user );
+		}
 	}
 
 	/**
@@ -232,13 +267,15 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_update_reply_revision_log
-	 * @todo   Implement test_bbp_update_reply_revision_log().
 	 */
 	public function test_bbp_update_reply_revision_log() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		$user_id  = $this->factory->user->create();
+		$log      = bbp_update_reply_revision_log( array( 'reply_id' => $reply_id, 'author_id' => $user_id, 'revision_id' => 17, 'reason' => 'Clarify wording' ) );
+		$this->assertSame( $user_id, $log[17]['author'] );
+		$this->assertSame( 'Clarify wording', $log[17]['reason'] );
+		$this->assertSame( $log, bbp_get_reply_raw_revision_log( $reply_id ) );
 	}
 
 	/**
@@ -390,112 +427,109 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_delete_reply
-	 * @todo   Implement test_bbp_delete_reply().
 	 */
 	public function test_bbp_delete_reply() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_reply_action( 'bbp_delete_reply', 'bbp_delete_reply' );
 	}
 
 	/**
 	 * @covers ::bbp_trash_reply
-	 * @todo   Implement test_bbp_trash_reply().
 	 */
 	public function test_bbp_trash_reply() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_reply_action( 'bbp_trash_reply', 'bbp_trash_reply' );
 	}
 
 	/**
 	 * @covers ::bbp_untrash_reply
-	 * @todo   Implement test_bbp_untrash_reply().
 	 */
 	public function test_bbp_untrash_reply() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_reply_action( 'bbp_untrash_reply', 'bbp_untrash_reply' );
 	}
 
 	/**
 	 * @covers ::bbp_deleted_reply
-	 * @todo   Implement test_bbp_deleted_reply().
 	 */
 	public function test_bbp_deleted_reply() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_reply_action( 'bbp_deleted_reply', 'bbp_deleted_reply' );
 	}
 
 	/**
 	 * @covers ::bbp_trashed_reply
-	 * @todo   Implement test_bbp_trashed_reply().
 	 */
 	public function test_bbp_trashed_reply() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_reply_action( 'bbp_trashed_reply', 'bbp_trashed_reply' );
 	}
 
 	/**
 	 * @covers ::bbp_untrashed_reply
-	 * @todo   Implement test_bbp_untrashed_reply().
 	 */
 	public function test_bbp_untrashed_reply() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_reply_action( 'bbp_untrashed_reply', 'bbp_untrashed_reply' );
 	}
 
 	/**
 	 * @covers ::bbp_get_replies_per_page
-	 * @todo   Implement test_bbp_get_replies_per_page().
 	 */
 	public function test_bbp_get_replies_per_page() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		update_option( '_bbp_replies_per_page', 0 );
+		$this->assertSame( 12, bbp_get_replies_per_page( 12 ) );
+		update_option( '_bbp_replies_per_page', '22' );
+		$this->assertSame( 22, bbp_get_replies_per_page() );
 	}
 
 	/**
 	 * @covers ::bbp_get_replies_per_rss_page
-	 * @todo   Implement test_bbp_get_replies_per_rss_page().
 	 */
 	public function test_bbp_get_replies_per_rss_page() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		update_option( '_bbp_replies_per_rss_page', 0 );
+		$this->assertSame( 18, bbp_get_replies_per_rss_page( 18 ) );
+		update_option( '_bbp_replies_per_rss_page', '30' );
+		$this->assertSame( 30, bbp_get_replies_per_rss_page() );
 	}
 
 	/**
 	 * @covers ::bbp_reply_content_autoembed
-	 * @todo   Implement test_bbp_reply_content_autoembed().
 	 */
 	public function test_bbp_reply_content_autoembed() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		global $wp_embed;
+
+		$callback = array( $wp_embed, 'autoembed' );
+		$priority = has_filter( 'bbp_get_reply_content', $callback );
+		remove_filter( 'bbp_get_reply_content', $callback, $priority );
+		add_filter( 'bbp_use_autoembed', '__return_false' );
+
+		try {
+			bbp_reply_content_autoembed();
+			$this->assertFalse( has_filter( 'bbp_get_reply_content', $callback ) );
+			remove_filter( 'bbp_use_autoembed', '__return_false' );
+			add_filter( 'bbp_use_autoembed', '__return_true' );
+			bbp_reply_content_autoembed();
+			$this->assertSame( 2, has_filter( 'bbp_get_reply_content', $callback ) );
+		} finally {
+			remove_filter( 'bbp_use_autoembed', '__return_false' );
+			remove_filter( 'bbp_use_autoembed', '__return_true' );
+			remove_filter( 'bbp_get_reply_content', $callback, 2 );
+			if ( false !== $priority ) {
+				add_filter( 'bbp_get_reply_content', $callback, $priority );
+			}
+		}
 	}
 
 	/**
 	 * @covers ::_bbp_has_replies_where
-	 * @todo   Implement test_bbp_has_replies_where().
 	 */
 	public function test_bbp_has_replies_where() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$posts    = bbp_db()->prefix . 'posts';
+		$where    = "WHERE 1=1  AND {$posts}.post_parent = {$topic_id}";
+		$query    = new WP_Query();
+		$query->set( 'post_parent', $topic_id );
+		$query->set( 'post_type', array( bbp_get_topic_post_type(), bbp_get_reply_post_type() ) );
+
+		$this->assertSame( $where, _bbp_has_replies_where( $where, false ) );
+		$this->assertSame( "WHERE 1=1 AND ({$posts}.ID = {$topic_id} OR {$posts}.post_parent = {$topic_id})", _bbp_has_replies_where( $where, $query ) );
+		$query->set( 'post__in', array( $topic_id ) );
+		$this->assertSame( $where, _bbp_has_replies_where( $where, $query ) );
 	}
 
 	/**
@@ -533,13 +567,14 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_get_reply_position_raw
-	 * @todo   Implement test_bbp_get_reply_position_raw().
 	 */
 	public function test_bbp_get_reply_position_raw() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$first_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		$next_id  = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		$this->assertSame( 0, bbp_get_reply_position_raw( $topic_id, $topic_id ) );
+		$this->assertSame( 1, bbp_get_reply_position_raw( $first_id, $topic_id ) );
+		$this->assertSame( 2, bbp_get_reply_position_raw( $next_id, $topic_id ) );
 	}
 
 	/**
