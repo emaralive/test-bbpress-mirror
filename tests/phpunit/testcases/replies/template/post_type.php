@@ -45,34 +45,31 @@ class BBP_Tests_Replies_Template_Post_Type extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_get_reply_post_type_labels
-	 * @todo   Implement test_bbp_get_reply_post_type_labels().
 	 */
 	public function test_bbp_get_reply_post_type_labels() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$labels = bbp_get_reply_post_type_labels();
+
+		$this->assertSame( 'Replies', $labels['name'] );
+		$this->assertSame( 'Reply', $labels['singular_name'] );
+		$this->assertSame( 'Add Reply', $labels['add_new_item'] );
+		$this->assertSame( 'Parent Topic:', $labels['parent_item_colon'] );
+		$this->assertSame( 'Reply updated.', $labels['item_updated'] );
 	}
 
 	/**
 	 * @covers ::bbp_get_reply_post_type_rewrite
-	 * @todo   Implement test_bbp_get_reply_post_type_rewrite().
 	 */
 	public function test_bbp_get_reply_post_type_rewrite() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assertSame( array(
+			'slug'       => bbp_get_reply_slug(),
+			'with_front' => false,
+		), bbp_get_reply_post_type_rewrite() );
 	}
 
 	/**
 	 * @covers ::bbp_get_reply_post_type_supports
-	 * @todo   Implement test_bbp_get_reply_post_type_supports().
 	 */
 	public function test_bbp_get_reply_post_type_supports() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assertSame( array( 'title', 'editor', 'revisions' ), bbp_get_reply_post_type_supports() );
 	}
 }
