@@ -428,6 +428,35 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::BBP_Forums_Group_Extension::map_group_forum_meta_caps
+	 */
+	public function test_unrelated_capability_does_not_load_a_post() {
+		global $wpdb;
+
+		$user_id  = $this->factory->user->create();
+		$group_id = $this->bp_factory->group->create( array( 'creator_id' => $user_id ) );
+		$post_id  = $this->factory->post->create();
+
+		$this->set_group_context( $group_id, $user_id );
+
+		$filter = function( $caps, $cap ) {
+			return ( 'edit_post' === $cap ) ? array( 'filtered_cap' ) : $caps;
+		};
+		add_filter( 'bbp_map_group_forum_topic_meta_caps', $filter, 10, 2 );
+
+		try {
+			wp_cache_delete( $post_id, 'posts' );
+			$queries = $wpdb->num_queries;
+			$caps    = $this->group_extension->map_group_forum_meta_caps( array( 'edit_posts' ), 'edit_post', $user_id, array( $post_id ) );
+		} finally {
+			remove_filter( 'bbp_map_group_forum_topic_meta_caps', $filter, 10 );
+		}
+
+		$this->assertSame( array( 'filtered_cap' ), $caps );
+		$this->assertSame( $queries, $wpdb->num_queries );
+	}
+
+	/**
+	 * @covers ::BBP_Forums_Group_Extension::map_group_forum_meta_caps
 	 * @covers ::BBP_Forums_Group_Extension::map_group_forum_read_meta_caps
 	 * @covers ::BBP_Shortcodes::display_forum
 	 * @covers ::BBP_Shortcodes::display_topic

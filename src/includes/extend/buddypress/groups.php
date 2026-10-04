@@ -430,13 +430,28 @@ class BBP_Forums_Group_Extension extends BP_Group_Extension {
 	 * @return array
 	 */
 	public function map_group_forum_meta_caps( $caps = array(), $cap = '', $user_id = 0, $args = array() ) {
-		// Group request state only describes the logged-in user
-		if ( bbp_get_current_user_id() !== (int) $user_id ) {
-			return (array) apply_filters( 'bbp_map_group_forum_topic_meta_caps', $caps, $cap, $user_id, $args );
-		}
+		// Only group forum capabilities need an object lookup
+		$group_caps = array(
+			'publish_replies',
+			'publish_topics',
+			'moderate',
+			'edit_topic',
+			'edit_reply',
+			'view_trash',
+			'edit_others_replies',
+			'edit_others_topics',
+			'delete_topic',
+			'delete_reply',
+			'manage_forum_attributes'
+		);
 
-		// Never replace an earlier hard denial
-		if ( in_array( 'do_not_allow', $caps, true ) ) {
+		// Keep this list synchronized with the capability switch below. Only map
+		// listed capabilities for the current user, and preserve hard denials.
+		if (
+			! in_array( $cap, $group_caps, true )
+			|| ( bbp_get_current_user_id() !== (int) $user_id )
+			|| in_array( 'do_not_allow', $caps, true )
+		) {
 			return (array) apply_filters( 'bbp_map_group_forum_topic_meta_caps', $caps, $cap, $user_id, $args );
 		}
 
