@@ -221,13 +221,18 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_get_reply_ancestors
-	 * @todo   Implement test_bbp_get_reply_ancestors().
 	 */
 	public function test_bbp_get_reply_ancestors() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id  = $this->factory->topic->create();
+		$root_id   = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		$parent_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		$child_id  = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		bbp_update_reply_to( $parent_id, $root_id );
+		bbp_update_reply_to( $child_id, $parent_id );
+
+		$this->assertSame( array(), bbp_get_reply_ancestors( $root_id ) );
+		$this->assertSame( array( $root_id ), bbp_get_reply_ancestors( $parent_id ) );
+		$this->assertSame( array( $parent_id, $root_id ), bbp_get_reply_ancestors( $child_id ) );
 	}
 
 	/**
@@ -522,13 +527,14 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_update_reply_position
-	 * @todo   Implement test_bbp_update_reply_position().
 	 */
 	public function test_bbp_update_reply_position() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+
+		$this->assertSame( 3, bbp_update_reply_position( $reply_id, 3 ) );
+		$this->assertSame( 3, (int) get_post_field( 'menu_order', $reply_id ) );
+		$this->assertFalse( bbp_update_reply_position( $reply_id, 3 ) );
 	}
 
 	/**
