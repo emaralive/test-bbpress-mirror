@@ -579,13 +579,33 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_list_replies
-	 * @todo   Implement test_bbp_list_replies().
 	 */
 	public function test_bbp_list_replies() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$bbp       = bbpress();
+		$old_query = $bbp->reply_query;
+		$old_pages = $bbp->max_num_pages;
+		$walker    = new class {
+			public $max_pages = 2;
+
+			public function paged_walk() {
+				return '<li>Reply</li>';
+			}
+		};
+		$bbp->reply_query = (object) array( 'posts' => array() );
+
+		try {
+			ob_start();
+			bbp_list_replies( array( 'walker' => $walker, 'style' => 'div' ) );
+			$this->assertSame( "<div class='bbp-replies-list'><li>Reply</li></div>", ob_get_clean() );
+			$this->assertSame( 2, $bbp->max_num_pages );
+			$this->assertFalse( $bbp->reply_query->in_the_loop );
+			ob_start();
+			bbp_list_replies( array( 'walker' => $walker, 'style' => 'table' ) );
+			$this->assertSame( "<ul class='bbp-replies-list'><li>Reply</li></ul>", ob_get_clean() );
+		} finally {
+			$bbp->reply_query   = $old_query;
+			$bbp->max_num_pages = $old_pages;
+		}
 	}
 
 	/**
