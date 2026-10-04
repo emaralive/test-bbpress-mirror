@@ -10,13 +10,11 @@ class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_show_lead_topic
-	 * @todo   Implement test_bbp_show_lead_topic().
 	 */
 	public function test_bbp_show_lead_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assertFalse( bbp_show_lead_topic() );
+		$this->assertTrue( bbp_show_lead_topic( true ) );
+		$this->assertFalse( bbp_show_lead_topic( 0 ) );
 	}
 
 	/**
@@ -38,13 +36,15 @@ class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_get_topic
-	 * @todo   Implement test_bbp_get_topic().
 	 */
 	public function test_bbp_get_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$forum_id = $this->factory->forum->create();
+
+		$this->assertSame( $topic_id, bbp_get_topic( $topic_id )->ID );
+		$this->assertSame( $topic_id, bbp_get_topic( get_post( $topic_id ) )->ID );
+		$this->assertSame( $topic_id, bbp_get_topic( $topic_id, ARRAY_A )['ID'] );
+		$this->assertNull( bbp_get_topic( $forum_id ) );
 	}
 
 	/**
@@ -188,13 +188,12 @@ class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_topic_archive_title
 	 * @covers ::bbp_get_topic_archive_title
-	 * @todo   Implement test_bbp_get_topic_archive_title().
 	 */
 	public function test_bbp_get_topic_archive_title() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assertSame( 'Topics', bbp_get_topic_archive_title() );
+		$this->assertSame( 'Custom archive', bbp_get_topic_archive_title( 'Custom archive' ) );
+		$this->expectOutputString( 'Custom archive' );
+		bbp_topic_archive_title( 'Custom archive' );
 	}
 
 	/**
@@ -318,13 +317,18 @@ class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_topic_pagination
 	 * @covers ::bbp_get_topic_pagination
-	 * @todo   Implement test_bbp_get_topic_pagination().
 	 */
 	public function test_bbp_get_topic_pagination() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$this->factory->reply->create_many( 2, array( 'post_parent' => $topic_id ) );
+		update_option( '_bbp_replies_per_page', 1 );
+		$args = array( 'topic_id' => $topic_id );
+		$pagination = bbp_get_topic_pagination( $args );
+
+		$this->assertStringContainsString( 'bbp-topic-pagination', $pagination );
+		$this->assertStringContainsString( 'paged=', $pagination );
+		$this->expectOutputString( $pagination );
+		bbp_topic_pagination( $args );
 	}
 
 	/**
@@ -364,69 +368,100 @@ class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_topic_class
 	 * @covers ::bbp_get_topic_class
-	 * @todo   Implement test_bbp_get_topic_class().
 	 */
 	public function test_bbp_get_topic_class() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$classes  = bbp_get_topic_class( $topic_id, array( 'extra-topic-class' ) );
+
+		$this->assertStringContainsString( 'bbp-parent-forum-' . $forum_id, $classes );
+		$this->assertStringContainsString( 'extra-topic-class', $classes );
+		bbp_stick_topic( $topic_id );
+		$classes = bbp_get_topic_class( $topic_id, array( 'extra-topic-class' ) );
+		$this->assertStringContainsString( ' sticky', $classes );
+		$this->expectOutputString( $classes );
+		bbp_topic_class( $topic_id, array( 'extra-topic-class' ) );
 	}
 
 	/**
 	 * @covers ::bbp_forum_pagination_count
 	 * @covers ::bbp_get_forum_pagination_count
-	 * @todo   Implement test_bbp_get_forum_pagination_count().
 	 */
 	public function test_bbp_get_forum_pagination_count() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$this->factory->topic->create_many( 2, array( 'post_parent' => $forum_id ) );
+		bbp_has_topics( array( 'post_parent' => $forum_id, 'posts_per_page' => 1 ) );
+		$count = bbp_get_forum_pagination_count();
+
+		$this->assertStringContainsString( 'Viewing', $count );
+		$this->assertStringContainsString( '2 total', $count );
+		$this->expectOutputString( $count );
+		bbp_forum_pagination_count();
 	}
 
 	/**
 	 * @covers ::bbp_topic_notices
-	 * @todo   Implement test_bbp_topic_notices().
 	 */
 	public function test_bbp_topic_notices() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		bbp_unapprove_topic( $topic_id );
+		$previous_topic_id = bbpress()->current_topic_id;
+		bbpress()->current_topic_id = $topic_id;
+		add_filter( 'bbp_is_single_topic', '__return_true' );
+		try {
+			bbp_topic_notices();
+			$this->assertSame( 'This topic is pending moderation.', bbpress()->errors->get_error_message( 'topic_notice' ) );
+		} finally {
+			bbpress()->errors->remove( 'topic_notice' );
+			remove_filter( 'bbp_is_single_topic', '__return_true' );
+			bbpress()->current_topic_id = $previous_topic_id;
+		}
 	}
 
 	/**
 	 * @covers ::bbp_topic_type_select
-	 * @todo   Implement test_bbp_topic_type_select().
 	 */
 	public function test_bbp_topic_type_select() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$args     = array( 'topic_id' => $topic_id );
+		$dropdown = bbp_get_form_topic_type_dropdown( $args );
+
+		$this->assertStringContainsString( 'bbp_stick_topic', $dropdown );
+		$this->assertStringContainsString( 'value="unstick"', $dropdown );
+		$this->expectOutputString( $dropdown );
+		bbp_topic_type_select( $args );
 	}
 
 	/**
 	 * @covers ::bbp_single_topic_description
 	 * @covers ::bbp_get_single_topic_description
-	 * @todo   Implement test_bbp_get_single_topic_description().
 	 */
 	public function test_bbp_get_single_topic_description() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$args     = array( 'topic_id' => $topic_id, 'before' => '<p>', 'after' => '</p>' );
+		$description = bbp_get_single_topic_description( $args );
+
+		$this->assertStringStartsWith( '<p>', $description );
+		$this->assertStringEndsWith( '</p>', $description );
+		$this->assertStringContainsString( 'This topic', $description );
+		$this->expectOutputString( $description );
+		bbp_single_topic_description( $args );
 	}
 
 	/**
 	 * @covers ::bbp_topic_row_actions
-	 * @todo   Implement test_bbp_topic_row_actions().
 	 */
 	public function test_bbp_topic_row_actions() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$called = 0;
+		$callback = function() use ( &$called ) {
+			++$called;
+		};
+		add_action( 'bbp_topic_row_actions', $callback );
+		try {
+			bbp_topic_row_actions();
+			$this->assertSame( 1, $called );
+		} finally {
+			remove_action( 'bbp_topic_row_actions', $callback );
+		}
 	}
 }
