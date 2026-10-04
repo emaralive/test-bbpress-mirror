@@ -100,6 +100,8 @@ function bbp_insert_reply( $reply_data = array(), $reply_meta = array() ) {
  * Update counts after a reply is inserted via `bbp_insert_reply`.
  *
  * @since 2.6.0 bbPress (r6036)
+ * @deprecated 2.6.20 bbPress. Counts are updated on post-status transitions.
+ *                    Retained for compatibility; unused internally since 2.6.16.
  *
  * @param int $reply_id The reply id.
  * @param int $topic_id The topic id.
