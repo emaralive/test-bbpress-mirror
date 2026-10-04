@@ -22,13 +22,19 @@ class BBP_Tests_Forums_Template_Forum extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_get_forum
-	 * @todo   Implement test_bbp_get_forum().
 	 */
 	public function test_bbp_get_forum() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$forum    = bbp_get_forum( $forum_id );
+
+		$this->assertInstanceOf( 'WP_Post', $forum );
+		$this->assertSame( $forum_id, $forum->ID );
+		$this->assertSame( $forum_id, bbp_get_forum( $forum )->ID );
+		$this->assertSame( $forum_id, bbp_get_forum( $forum_id, ARRAY_A )['ID'] );
+		$this->assertSame( array_values( get_object_vars( $forum ) ), bbp_get_forum( $forum_id, ARRAY_N ) );
+		$this->assertNull( bbp_get_forum( $topic_id ) );
+		$this->assertNull( bbp_get_forum( 999999 ) );
 	}
 
 	/**
@@ -116,14 +122,14 @@ class BBP_Tests_Forums_Template_Forum extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_forum_archive_title
 	 * @covers ::bbp_get_forum_archive_title
-	 * @todo   Implement test_bbp_forum_archive_title().
-	 * @todo   Implement test_bbp_get_forum_archive_title().
 	 */
 	public function test_bbp_get_forum_archive_title() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$title = get_post_type_object( bbp_get_forum_post_type() )->labels->name;
+
+		$this->assertSame( $title, bbp_get_forum_archive_title() );
+		$this->assertSame( 'Custom archive', bbp_get_forum_archive_title( 'Custom archive' ) );
+		$this->expectOutputString( 'Custom archive' );
+		bbp_forum_archive_title( 'Custom archive' );
 	}
 
 	/**
@@ -526,71 +532,125 @@ class BBP_Tests_Forums_Template_Forum extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_get_forum_ancestors
-	 * @todo   Implement test_bbp_get_forum_ancestors().
 	 */
 	public function test_bbp_get_forum_ancestors() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$root_id   = $this->factory->forum->create();
+		$parent_id = $this->factory->forum->create( array( 'post_parent' => $root_id ) );
+		$child_id  = $this->factory->forum->create( array( 'post_parent' => $parent_id ) );
+
+		$this->assertSame( array(), bbp_get_forum_ancestors( $root_id ) );
+		$this->assertSame( array( $parent_id, $root_id ), bbp_get_forum_ancestors( $child_id ) );
+		$this->assertSame( array(), bbp_get_forum_ancestors( 999999 ) );
 	}
 
 	/**
 	 * @covers ::bbp_forum_get_subforums
-	 * @todo   Implement test_bbp_forum_get_subforums().
 	 */
 	public function test_bbp_forum_get_subforums() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$parent_id = $this->factory->forum->create();
+		$first_id  = $this->factory->forum->create( array( 'post_parent' => $parent_id, 'post_title' => 'Alpha' ) );
+		$second_id = $this->factory->forum->create( array( 'post_parent' => $parent_id, 'post_title' => 'Beta' ) );
+		$this->factory->forum->create();
+		bbp_update_forum_subforum_count( $parent_id );
+
+		$this->assertSame( array(), bbp_forum_get_subforums( 999999 ) );
+		$this->assertSame( array( $first_id, $second_id ), wp_list_pluck( bbp_forum_get_subforums( $parent_id ), 'ID' ) );
+		$this->assertSame( array( $second_id ), wp_list_pluck( bbp_forum_get_subforums( array( 'post_parent' => $parent_id, 'posts_per_page' => 1, 'order' => 'DESC' ) ), 'ID' ) );
 	}
 
 	/**
 	 * @covers ::bbp_list_forums
-	 * @todo   Implement test_bbp_list_forums().
 	 */
 	public function test_bbp_list_forums() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$parent_id = $this->factory->forum->create();
+		$child_id  = $this->factory->forum->create( array( 'post_parent' => $parent_id, 'post_title' => 'Listed child' ) );
+		$category_id = $this->factory->forum->create( array( 'post_parent' => $parent_id, 'post_title' => 'Listed category' ) );
+		bbp_categorize_forum( $category_id );
+		bbp_update_forum_subforum_count( $parent_id );
+
+		$this->assertSame( '', bbp_list_forums( array( 'forum_id' => $child_id, 'echo' => false ) ) );
+		$list = bbp_list_forums( array( 'forum_id' => $parent_id, 'echo' => false, 'show_topic_count' => false, 'show_reply_count' => false ) );
+		$this->assertStringContainsString( '<ul class="bbp-forums-list">', $list );
+		$this->assertStringContainsString( 'Listed child', $list );
+		$this->assertStringContainsString( 'Listed category', $list );
+		$this->assertStringContainsString( esc_url( bbp_get_forum_permalink( $child_id ) ), $list );
+		$this->assertStringNotContainsString( ' (0, 0)', $list );
+		$counted_list = bbp_list_forums( array( 'forum_id' => $parent_id, 'echo' => false ) );
+		$this->assertStringContainsString( 'Listed child (0, 0)', $counted_list );
+		$this->assertStringContainsString( 'Listed category</a>', $counted_list );
+
+		ob_start();
+		bbp_list_forums( array( 'forum_id' => $parent_id, 'show_topic_count' => false, 'show_reply_count' => false ) );
+		$this->assertSame( $list, ob_get_clean() );
 	}
 
 	/**
 	 * @covers ::bbp_forum_subscription_link
 	 * @covers ::bbp_get_forum_subscription_link
-	 * @todo   Implement test_bbp_get_forum_subscription_link().
 	 */
 	public function test_bbp_get_forum_subscription_link() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$user_id  = $this->factory->user->create( array( 'role' => bbp_get_participant_role() ) );
+		$this->set_current_user( $user_id );
+
+		$args = array( 'user_id' => $user_id, 'object_id' => $forum_id );
+		$this->assertTrue( bbp_is_subscriptions_active() );
+		$this->assertFalse( bbp_is_forum_category() );
+		$this->assertTrue( current_user_can( 'read_forum', $forum_id ) );
+		$this->assertTrue( current_user_can( 'edit_user', $user_id ) );
+		$link = bbp_get_forum_subscription_link( $args );
+		$this->assertStringContainsString( 'Subscribe', $link );
+		$this->assertStringContainsString( 'data-bbp-object-id="' . $forum_id . '"', $link );
+		$this->assertStringContainsString( 'data-bbp-object-type="post"', $link );
+		$this->assertTrue( bbp_add_user_subscription( $user_id, $forum_id ) );
+		$subscribed_link = bbp_get_forum_subscription_link( $args );
+		$this->assertStringContainsString( 'Unsubscribe', $subscribed_link );
+		$this->assertStringContainsString( 'is-subscribed', $subscribed_link );
+
+		ob_start();
+		bbp_forum_subscription_link( $args );
+		$this->assertSame( $subscribed_link, ob_get_clean() );
+
+		$this->set_current_user( 0 );
+		$this->assertFalse( bbp_get_forum_subscription_link( array( 'object_id' => $forum_id ) ) );
 	}
 
 	/**
 	 * @covers ::bbp_forum_topics_link
 	 * @covers ::bbp_get_forum_topics_link
-	 * @todo   Implement test_bbp_get_forum_topics_link().
 	 */
 	public function test_bbp_get_forum_topics_link() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$this->assertSame( '0 topics', bbp_get_forum_topics_link( $forum_id ) );
+
+		$this->factory->topic->create( array( 'post_parent' => $forum_id, 'topic_meta' => array( 'forum_id' => $forum_id ) ) );
+		$this->assertSame( '1 topic', bbp_get_forum_topics_link( $forum_id ) );
+
+		ob_start();
+		bbp_forum_topics_link( $forum_id );
+		$this->assertSame( '1 topic', ob_get_clean() );
 	}
 
 	/**
 	 * @covers ::bbp_forum_class
 	 * @covers ::bbp_get_forum_class
-	 * @todo   Implement test_bbp_get_forum_class().
 	 */
 	public function test_bbp_get_forum_class() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$parent_id = $this->factory->forum->create();
+		$child_id  = $this->factory->forum->create( array( 'post_parent' => $parent_id ) );
+		bbp_categorize_forum( $child_id );
+		bbp_close_forum( $child_id );
+
+		$class = bbp_get_forum_class( $child_id, array( 'custom-forum-class' ) );
+		$this->assertStringContainsString( 'custom-forum-class', $class );
+		$this->assertStringContainsString( 'bbp-forum-status-closed', $class );
+		$this->assertStringContainsString( 'bbp-forum-visibility-publish', $class );
+		$this->assertStringContainsString( 'status-category', $class );
+		$this->assertStringContainsString( 'bbp-parent-forum-' . $parent_id, $class );
+
+		ob_start();
+		bbp_forum_class( $child_id, array( 'custom-forum-class' ) );
+		$this->assertSame( $class, ob_get_clean() );
 	}
 
 	/**

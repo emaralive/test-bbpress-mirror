@@ -255,4 +255,32 @@ class BBP_Tests_Forums_Template_Counts extends BBP_UnitTestCase {
 		$count = bbp_get_forum_topic_count_hidden( $c, true, true );
 		$this->assertSame( $int_value, $count );
 	}
+
+	/**
+	 * @covers ::bbp_forum_reply_count_hidden
+	 * @covers ::bbp_get_forum_reply_count_hidden
+	 */
+	public function test_bbp_get_forum_reply_count_hidden() {
+		$forum_id = $this->factory->forum->create();
+		update_post_meta( $forum_id, '_bbp_reply_count_hidden', 2 );
+		update_post_meta( $forum_id, '_bbp_total_reply_count_hidden', 5 );
+
+		$this->assertSame( 2, bbp_get_forum_reply_count_hidden( $forum_id, false, true ) );
+		$this->assertSame( 5, bbp_get_forum_reply_count_hidden( $forum_id, true, true ) );
+
+		ob_start();
+		bbp_forum_reply_count_hidden( $forum_id, false, true );
+		$this->assertSame( '2', ob_get_clean() );
+
+		$filter = function( $count, $filtered_forum_id ) use ( $forum_id ) {
+			$this->assertSame( $forum_id, $filtered_forum_id );
+			return $count + 1;
+		};
+		add_filter( 'bbp_get_forum_reply_count_hidden_int', $filter, 10, 2 );
+		try {
+			$this->assertSame( 3, bbp_get_forum_reply_count_hidden( $forum_id, false, true ) );
+		} finally {
+			remove_filter( 'bbp_get_forum_reply_count_hidden_int', $filter );
+		}
+	}
 }
