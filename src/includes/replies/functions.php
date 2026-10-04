@@ -1194,7 +1194,7 @@ function bbp_get_reply_ancestors( $reply_id = 0 ) {
 				$grampy_id = bbp_get_reply_to( $ancestor->ID );
 
 				// Loop detection: If the ancestor has been seen before, break.
-				if ( empty( $ancestor->post_parent ) || ( $grampy_id === $reply_id ) || in_array( $grampy_id, $ancestors, true ) ) {
+				if ( empty( $grampy_id ) || empty( $ancestor->post_parent ) || ( $grampy_id === $reply_id ) || in_array( $grampy_id, $ancestors, true ) ) {
 					break;
 				}
 
@@ -2438,7 +2438,7 @@ function bbp_update_reply_position( $reply_id = 0, $reply_position = false ) {
 		: bbp_get_reply_position_raw( $reply_id, bbp_get_reply_topic_id( $reply_id ) );
 
 	// Get the current reply position
-	$current_position = get_post_field( 'menu_order', $reply_id );
+	$current_position = (int) get_post_field( 'menu_order', $reply_id );
 
 	// Bail if no change
 	if ( $reply_position === $current_position ) {
