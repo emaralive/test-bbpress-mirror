@@ -52,9 +52,6 @@ class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 	 * @covers ::bbp_get_topic_permalink
 	 */
 	public function test_bbp_get_topic_permalink() {
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multiste for now.' );
-		}
 		$f = $this->factory->forum->create();
 		$t = $this->factory->topic->create( array(
 			'post_title' => 'Topic 1',

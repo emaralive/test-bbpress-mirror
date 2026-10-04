@@ -143,10 +143,6 @@ class BBP_Tests_Topics_Template_Get_Topic_Last_Thing extends BBP_UnitTestCase {
 	 * @covers ::bbp_get_topic_last_reply_permalink
 	 */
 	public function test_bbp_get_topic_last_reply_permalink() {
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multiste for now.' );
-		}
-
 		$f = $this->factory->forum->create();
 
 		$t = $this->factory->topic->create( array(
@@ -176,10 +172,6 @@ class BBP_Tests_Topics_Template_Get_Topic_Last_Thing extends BBP_UnitTestCase {
 	 * @covers ::bbp_get_topic_last_reply_url
 	 */
 	public function test_bbp_get_topic_last_reply_url() {
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multiste for now.' );
-		}
-
 		$f = $this->factory->forum->create();
 
 		$t = $this->factory->topic->create( array(

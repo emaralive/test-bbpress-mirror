@@ -122,8 +122,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 		$this->set_group_context( $group_id, $user_id );
 
 		$_SERVER['REQUEST_METHOD']     = 'POST';
-		$_SERVER['HTTP_HOST']          = wp_parse_url( home_url(), PHP_URL_HOST );
-		$_SERVER['REQUEST_URI']        = '/';
+		$this->set_request_url();
 		$_REQUEST['_wpnonce']          = wp_create_nonce( 'groups_edit_save_forum' );
 		$_POST['bbp-edit-group-forum'] = '1';
 
@@ -146,8 +145,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 		$this->set_group_context( $group_id, $user_id );
 
 		$_SERVER['REQUEST_METHOD']     = 'POST';
-		$_SERVER['HTTP_HOST']          = wp_parse_url( home_url(), PHP_URL_HOST );
-		$_SERVER['REQUEST_URI']        = '/';
+		$this->set_request_url();
 		$_REQUEST['_wpnonce']          = wp_create_nonce( 'groups_edit_save_forum' );
 		$_POST['bbp-edit-group-forum'] = '1';
 
@@ -677,14 +675,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 	}
 
 	protected function submit_forum_edit( $forum_id, $parent_id ) {
-		$home_url             = wp_parse_url( home_url( '/' ) );
-		$_SERVER['HTTP_HOST'] = $home_url['host'];
-
-		if ( isset( $home_url['port'] ) ) {
-			$_SERVER['HTTP_HOST'] .= ':' . $home_url['port'];
-		}
-
-		$_SERVER['REQUEST_URI'] = $home_url['path'];
+		$this->set_request_url();
 		$_POST                  = array(
 			'bbp_forum_id'         => $forum_id,
 			'bbp_forum_parent_id'  => $parent_id,
@@ -712,6 +703,17 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 		}
 
 		remove_filter( 'wp_redirect', $prevent_redirect );
+	}
+
+	protected function set_request_url() {
+		$home_url             = wp_parse_url( home_url( '/' ) );
+		$_SERVER['HTTP_HOST'] = $home_url['host'];
+
+		if ( isset( $home_url['port'] ) ) {
+			$_SERVER['HTTP_HOST'] .= ':' . $home_url['port'];
+		}
+
+		$_SERVER['REQUEST_URI'] = $home_url['path'];
 	}
 
 	/**
@@ -799,6 +801,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 		$this->attach_forum_to_group( $forum_id, $group_id );
 		bbp_add_moderator( $forum_id, $moderator_id );
 		bbp_update_group_forum_ids( $group_id, array( $forum_id, $post_id ) );
+		buddypress()->is_single_item = true;
 		$this->set_group_context( $group_id, $user_id );
 
 		$this->assertTrue( bbp_group_is_admin() );

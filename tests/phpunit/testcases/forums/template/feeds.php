@@ -15,10 +15,6 @@ class BBP_Tests_Forums_Template_Feeds extends BBP_UnitTestCase {
 	 */
 	public function test_bbp_get_forum_topics_feed_link() {
 
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multiste for now.' );
-		}
-
 		$f = $this->factory->forum->create( array(
 			'post_title' => 'Forum 1',
 		) );
@@ -36,10 +32,6 @@ class BBP_Tests_Forums_Template_Feeds extends BBP_UnitTestCase {
 	 * @covers ::bbp_get_forum_replies_feed_link
 	 */
 	public function test_bbp_get_forum_replies_feed_link() {
-
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multiste for now.' );
-		}
 
 		$f = $this->factory->forum->create( array(
 			'post_title' => 'Forum 1',

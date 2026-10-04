@@ -613,7 +613,7 @@ class BBP_Tests_Extend_BuddyPress_Activity extends BBP_UnitTestCase {
 
 		// See https://bbpress.trac.wordpress.org/ticket/2794.
 		// See https://bbpress.trac.wordpress.org/ticket/3089.
-		$this->markTestSkipped( 'Skipping dynamic group activity action tests.' );
+		$this->markTestSkipped( 'Dynamic actions are not registered for group forum activity; see #3089.' );
 
 		$g = $this->bp_factory->group->create();
 		$group = groups_get_group( array( 'group_id' => $g ) );
@@ -679,7 +679,7 @@ class BBP_Tests_Extend_BuddyPress_Activity extends BBP_UnitTestCase {
 
 		// See https://bbpress.trac.wordpress.org/ticket/2794.
 		// See https://bbpress.trac.wordpress.org/ticket/3089.
-		$this->markTestSkipped( 'Skipping dynamic group activity action tests.' );
+		$this->markTestSkipped( 'Dynamic actions are not registered for group forum activity; see #3089.' );
 
 		$g = $this->bp_factory->group->create();
 		$group = groups_get_group( array( 'group_id' => $g ) );

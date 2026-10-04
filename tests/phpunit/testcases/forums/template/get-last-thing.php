@@ -372,10 +372,6 @@ class BBP_Tests_Forums_Template_Forum_Last_Thing extends BBP_UnitTestCase {
 	 * @covers ::bbp_get_forum_last_topic_permalink
 	 */
 	public function test_bbp_get_forum_last_topic_permalink() {
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multisite for now.' );
-		}
-
 		$c = $this->factory->forum->create( array(
 			'forum_meta' => array(
 				'forum_type' => 'category',
@@ -463,10 +459,6 @@ class BBP_Tests_Forums_Template_Forum_Last_Thing extends BBP_UnitTestCase {
 	 * @covers ::bbp_forum_last_topic_author_link
 	 * @covers ::bbp_get_forum_last_topic_author_link	 */
 	public function test_bbp_get_forum_last_topic_author_link() {
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multisite for now.' );
-		}
-
 		$u = $this->factory->user->create();
 
 		$c = $this->factory->forum->create( array(
@@ -768,10 +760,6 @@ class BBP_Tests_Forums_Template_Forum_Last_Thing extends BBP_UnitTestCase {
 	 * @covers ::bbp_get_forum_last_reply_author_link
 	 */
 	public function test_bbp_get_forum_last_reply_author_link() {
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multisite for now.' );
-		}
-
 		$u = $this->factory->user->create();
 
 		$c = $this->factory->forum->create( array(

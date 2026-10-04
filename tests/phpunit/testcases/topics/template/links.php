@@ -90,10 +90,6 @@ class BBP_Tests_Topics_Template_Links extends BBP_UnitTestCase {
 	 */
 	public function test_bbp_get_topic_freshness_link() {
 
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multiste for now.' );
-		}
-
 		$now = time();
 		$post_date    = date( 'Y-m-d H:i:s', $now - 60 * 60 * 100 );
 		$post_date_r1 = date( 'Y-m-d H:i:s', $now - 60 * 60 * 80 );
@@ -141,10 +137,6 @@ class BBP_Tests_Topics_Template_Links extends BBP_UnitTestCase {
 	 * @covers ::bbp_get_topic_freshness_link
 	 */
 	public function test_bbp_get_topic_freshness_link_with_unpublished_replies() {
-
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multiste for now.' );
-		}
 
 		$now = time();
 		$post_date    = date( 'Y-m-d H:i:s', $now - 60 * 60 * 20 ); // 2o hours ago

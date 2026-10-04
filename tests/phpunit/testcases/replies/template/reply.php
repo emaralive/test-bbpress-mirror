@@ -54,9 +54,6 @@ class BBP_Tests_Replies_Template_Reply extends BBP_UnitTestCase {
 	 * @covers ::bbp_get_reply_permalink
 	 */
 	public function test_bbp_get_reply_permalink() {
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multiste for now.' );
-		}
 		$f = $this->factory->forum->create();
 		$t = $this->factory->topic->create( array(
 			'post_parent' => $f,
@@ -88,10 +85,6 @@ class BBP_Tests_Replies_Template_Reply extends BBP_UnitTestCase {
 	 * @ticket BBP2845
 	 */
 	public function test_bbp_get_reply_url() {
-		if ( is_multisite() ) {
-			$this->markTestSkipped( 'Skipping URL tests in multisite for now.' );
-		}
-
 		$f = $this->factory->forum->create();
 
 		$t = $this->factory->topic->create( array(
