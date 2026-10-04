@@ -855,35 +855,47 @@ class BBP_Tests_Admin_Tools extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_admin_repair_user_favorites
-	 * @todo   Implement test_bbp_admin_repair_user_favorites().
 	 */
 	public function test_bbp_admin_repair_user_favorites() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id = $this->factory->user->create();
+		$live_id = $this->factory->topic->create();
+		$old_id  = $this->factory->topic->create();
+		$key     = bbp_db()->prefix . '_bbp_favorites';
+		wp_trash_post( $old_id );
+		update_user_meta( $user_id, $key, "{$live_id},{$old_id}" );
+
+		$this->assertSame( 0, bbp_admin_repair_user_favorites()[0] );
+		$this->assertSame( (string) $live_id, get_user_meta( $user_id, $key, true ) );
 	}
 
 	/**
 	 * @covers ::bbp_admin_repair_user_topic_subscriptions
-	 * @todo   Implement test_bbp_admin_repair_user_topic_subscriptions().
 	 */
 	public function test_bbp_admin_repair_user_topic_subscriptions() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id = $this->factory->user->create();
+		$live_id = $this->factory->topic->create();
+		$old_id  = $this->factory->topic->create();
+		$key     = bbp_db()->prefix . '_bbp_subscriptions';
+		wp_trash_post( $old_id );
+		update_user_meta( $user_id, $key, "{$live_id},{$old_id}" );
+
+		$this->assertSame( 0, bbp_admin_repair_user_topic_subscriptions()[0] );
+		$this->assertSame( (string) $live_id, get_user_meta( $user_id, $key, true ) );
 	}
 
 	/**
 	 * @covers ::bbp_admin_repair_user_forum_subscriptions
-	 * @todo   Implement test_bbp_admin_repair_user_forum_subscriptions().
 	 */
 	public function test_bbp_admin_repair_user_forum_subscriptions() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id = $this->factory->user->create();
+		$live_id = $this->factory->forum->create();
+		$old_id  = $this->factory->forum->create();
+		$key     = bbp_db()->prefix . '_bbp_forum_subscriptions';
+		wp_trash_post( $old_id );
+		update_user_meta( $user_id, $key, "{$live_id},{$old_id}" );
+
+		$this->assertSame( 0, bbp_admin_repair_user_forum_subscriptions()[0] );
+		$this->assertSame( (string) $live_id, get_user_meta( $user_id, $key, true ) );
 	}
 
 	/**
