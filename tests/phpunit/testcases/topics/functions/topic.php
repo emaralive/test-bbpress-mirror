@@ -107,13 +107,31 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_update_topic
-	 * @todo   Implement test_bbp_update_topic().
 	 */
 	public function test_bbp_update_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_user = get_current_user_id();
+		$user_id  = $this->factory->user->create();
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id, 'post_author' => $user_id ) );
+		update_post_meta( $topic_id, '_edit_lock', 'stale' );
+		delete_post_meta( $topic_id, '_bbp_forum_id' );
+		delete_post_meta( $topic_id, '_bbp_topic_id' );
+		$this->set_current_user( $user_id );
+
+		try {
+			bbp_update_topic( $topic_id, $forum_id, array(), $user_id, true );
+			$this->assertSame( (string) $user_id, get_post_meta( $topic_id, '_edit_last', true ) );
+			$this->assertFalse( metadata_exists( 'post', $topic_id, '_edit_lock' ) );
+			$this->assertSame( (string) $forum_id, get_post_meta( $topic_id, '_bbp_forum_id', true ) );
+			$this->assertSame( (string) $topic_id, get_post_meta( $topic_id, '_bbp_topic_id', true ) );
+			delete_post_meta( $topic_id, '_bbp_last_active_id' );
+			delete_post_meta( $topic_id, '_bbp_reply_count' );
+			bbp_update_topic( $topic_id, $forum_id, array(), $user_id, false );
+			$this->assertSame( (string) $topic_id, get_post_meta( $topic_id, '_bbp_last_active_id', true ) );
+			$this->assertSame( '0', get_post_meta( $topic_id, '_bbp_reply_count', true ) );
+		} finally {
+			$this->set_current_user( $old_user );
+		}
 	}
 
 	/**
