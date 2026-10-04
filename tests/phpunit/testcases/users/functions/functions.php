@@ -291,13 +291,62 @@
 
 	/**
 	 * @covers ::bbp_check_user_edit
-	 * @todo   Implement test_bbp_check_user_edit().
 	 */
 	public function test_bbp_check_user_edit() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id   = $this->factory->user->create();
+		$other_id  = $this->factory->user->create();
+		$admin_id  = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		$old_user  = get_current_user_id();
+		$decisions = array();
+		$displayed = function () use ( $user_id ) {
+			return $user_id;
+		};
+		$check = function ( $redirect, $checked_user_id ) use ( &$decisions ) {
+			$decisions[] = array( $redirect, $checked_user_id );
+
+			// Inspect the decision without an HTTP redirect.
+			return false;
+		};
+		add_filter( 'bbp_get_displayed_user_id', $displayed );
+		add_filter( 'bbp_check_user_edit', $check, 10, 2 );
+		if ( is_multisite() ) {
+			grant_super_admin( $admin_id );
+		}
+
+		try {
+			$this->set_current_user( $other_id );
+			bbp_check_user_edit();
+			$this->assertSame( array(), $decisions );
+
+			add_filter( 'bbp_is_single_user_edit', '__return_true' );
+			bbp_check_user_edit();
+			$this->assertSame( array( array( true, $user_id ) ), $decisions );
+
+			$this->set_current_user( $user_id );
+			add_filter( 'bbp_is_user_home_edit', '__return_true' );
+			bbp_check_user_edit();
+			$this->assertSame( array( false, $user_id ), $decisions[1] );
+			remove_filter( 'bbp_is_user_home_edit', '__return_true' );
+
+			$this->set_current_user( $admin_id );
+			bbp_check_user_edit();
+			$this->assertSame( array( false, $user_id ), $decisions[2] );
+
+			$this->set_current_user( $other_id );
+			add_filter( 'enable_edit_any_user_configuration', '__return_true' );
+			bbp_check_user_edit();
+			$this->assertSame( array( false, $user_id ), $decisions[3] );
+		} finally {
+			remove_filter( 'enable_edit_any_user_configuration', '__return_true' );
+			remove_filter( 'bbp_is_single_user_edit', '__return_true' );
+			remove_filter( 'bbp_is_user_home_edit', '__return_true' );
+			remove_filter( 'bbp_get_displayed_user_id', $displayed );
+			remove_filter( 'bbp_check_user_edit', $check, 10 );
+			$this->set_current_user( $old_user );
+			if ( is_multisite() ) {
+				revoke_super_admin( $admin_id );
+			}
+		}
 	}
 
 	/**
