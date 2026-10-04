@@ -55,6 +55,9 @@ class BBP_Tests_Users_Functions_Permissions extends BBP_UnitTestCase {
 		parent::tearDown();
 	}
 
+	/**
+	 * @covers ::bbp_map_primary_meta_caps
+	 */
 	public function test_super_moderator_capabilities_are_scoped_to_the_profile_editor() {
 		$moderator_id = $this->factory->user->create();
 		$target_id    = $this->factory->user->create( array( 'role' => 'subscriber' ) );
@@ -194,6 +197,10 @@ class BBP_Tests_Users_Functions_Permissions extends BBP_UnitTestCase {
 		$this->assertFalse( current_user_can( 'promote_user', $target_id ) );
 	}
 
+	/**
+	 * @covers ::bbp_current_user_can_edit_user_field
+	 * @covers ::bbp_get_user_editable_forum_roles
+	 */
 	public function test_super_moderator_profile_field_defaults() {
 		$moderator_id = $this->factory->user->create();
 		$target_id    = $this->factory->user->create( array( 'role' => 'subscriber' ) );
@@ -411,6 +418,9 @@ class BBP_Tests_Users_Functions_Permissions extends BBP_UnitTestCase {
 		$this->assertTrue( current_user_can( 'edit_user', $target_id ) );
 	}
 
+	/**
+	 * @covers ::bbp_profile_update_role
+	 */
 	public function test_forum_role_handler_rejects_and_filters_staff_roles() {
 		$moderator_id = $this->factory->user->create();
 		$target_id    = $this->factory->user->create( array( 'role' => 'subscriber' ) );
