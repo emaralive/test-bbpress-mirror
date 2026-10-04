@@ -222,24 +222,71 @@
 
 	/**
 	 * @covers ::bbp_edit_user_email_send_notification
-	 * @todo   Implement test_bbp_edit_user_email_send_notification().
 	 */
 	public function test_bbp_edit_user_email_send_notification() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id    = $this->factory->user->create();
+		$old_errors = bbpress()->errors;
+		$sent       = array();
+		$displayed  = function () use ( $user_id ) {
+			return $user_id;
+		};
+		$mail = function ( $result, $args ) use ( &$sent ) {
+			$sent[] = $args;
+			return true;
+		};
+		bbpress()->errors = new WP_Error();
+		add_filter( 'bbp_get_displayed_user_id', $displayed );
+		add_filter( 'pre_wp_mail', $mail, 10, 2 );
+
+		try {
+			bbp_edit_user_email_send_notification( $user_id, array( 'newemail' => 'new@example.org' ) );
+			$this->assertContains( 'bbp_user_email_invalid_hash', bbpress()->errors->get_error_codes() );
+			$this->assertSame( array(), $sent );
+			bbp_edit_user_email_send_notification( $user_id, array( 'hash' => 'test-hash', 'newemail' => 'new@example.org' ) );
+			$this->assertCount( 1, $sent );
+			$this->assertSame( 'new@example.org', $sent[0]['to'] );
+			$this->assertStringContainsString( 'newuseremail=test-hash', $sent[0]['message'] );
+		} finally {
+			remove_filter( 'bbp_get_displayed_user_id', $displayed );
+			remove_filter( 'pre_wp_mail', $mail, 10 );
+			bbpress()->errors = $old_errors;
+		}
 	}
 
 	/**
 	 * @covers ::bbp_user_edit_after
-	 * @todo   Implement test_bbp_user_edit_after().
 	 */
 	public function test_bbp_user_edit_after() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id   = $this->factory->user->create();
+		$seen      = array();
+		$displayed = function () use ( $user_id ) {
+			return $user_id;
+		};
+		$show = function ( $user ) use ( &$seen ) {
+			$seen[] = array( 'show', $user->ID );
+		};
+		$edit = function ( $user ) use ( &$seen ) {
+			$seen[] = array( 'edit', $user->ID );
+		};
+		add_filter( 'bbp_get_displayed_user_id', $displayed );
+		add_action( 'show_user_profile', $show );
+		add_action( 'edit_user_profile', $edit );
+
+		try {
+			add_filter( 'bbp_is_user_home_edit', '__return_true' );
+			bbp_user_edit_after();
+			$this->assertSame( array( array( 'show', $user_id ) ), $seen );
+			remove_filter( 'bbp_is_user_home_edit', '__return_true' );
+			add_filter( 'bbp_is_user_home_edit', '__return_false' );
+			bbp_user_edit_after();
+			$this->assertSame( array( array( 'show', $user_id ), array( 'edit', $user_id ) ), $seen );
+		} finally {
+			remove_filter( 'bbp_is_user_home_edit', '__return_true' );
+			remove_filter( 'bbp_is_user_home_edit', '__return_false' );
+			remove_filter( 'bbp_get_displayed_user_id', $displayed );
+			remove_action( 'show_user_profile', $show );
+			remove_action( 'edit_user_profile', $edit );
+		}
 	}
 
 	/**
@@ -255,13 +302,37 @@
 
 	/**
 	 * @covers ::bbp_forum_enforce_blocked
-	 * @todo   Implement test_bbp_forum_enforce_blocked().
 	 */
 	public function test_bbp_forum_enforce_blocked() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$old_user  = get_current_user_id();
+		$old_query = $GLOBALS['wp_query'];
+		$query     = new WP_Query();
+		$user_id   = $this->factory->user->create( array( 'role' => 'subscriber' ) );
+		bbp_set_user_role( $user_id, bbp_get_blocked_role() );
+		$GLOBALS['wp_query'] = $query;
+		add_filter( 'is_bbpress', '__return_true' );
+
+		try {
+			$this->set_current_user( 0 );
+			bbp_forum_enforce_blocked();
+			$this->assertFalse( $query->is_404() );
+
+			$this->set_current_user( $user_id );
+			add_filter( 'bbp_is_user_keymaster', '__return_true' );
+			bbp_forum_enforce_blocked();
+			$this->assertFalse( $query->is_404() );
+			remove_filter( 'bbp_is_user_keymaster', '__return_true' );
+
+			$this->assertTrue( is_bbpress() );
+			$this->assertFalse( current_user_can( 'spectate' ) );
+			bbp_forum_enforce_blocked();
+			$this->assertTrue( $query->is_404() );
+		} finally {
+			remove_filter( 'bbp_is_user_keymaster', '__return_true' );
+			remove_filter( 'is_bbpress', '__return_true' );
+			$this->set_current_user( $old_user );
+			$GLOBALS['wp_query'] = $old_query;
+		}
 	}
 
 	/**
