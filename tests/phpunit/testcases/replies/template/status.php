@@ -27,14 +27,28 @@ class BBP_Tests_Repliess_Template_Status extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_reply_status
 	 * @covers ::bbp_get_reply_status
-	 * @todo   Implement test_bbp_get_reply_status().
 	 */
 	public function test_bbp_get_reply_status() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
 
+		$this->assertSame( bbp_get_public_status_id(), bbp_get_reply_status( $reply_id ) );
+		wp_update_post( array( 'ID' => $reply_id, 'post_status' => bbp_get_pending_status_id() ) );
+		$this->assertSame( bbp_get_pending_status_id(), bbp_get_reply_status( $reply_id ) );
+		$this->expectOutputString( bbp_get_pending_status_id() );
+		bbp_reply_status( $reply_id );
+	}
+
+	/**
+	 * @covers ::bbp_is_reply_public
+	 */
+	public function test_bbp_is_reply_public() {
+		$topic_id = $this->factory->topic->create();
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+
+		$this->assertTrue( bbp_is_reply_public( $reply_id ) );
+		wp_update_post( array( 'ID' => $reply_id, 'post_status' => bbp_get_pending_status_id() ) );
+		$this->assertFalse( bbp_is_reply_public( $reply_id ) );
 	}
 
 	/**
@@ -114,13 +128,14 @@ class BBP_Tests_Repliess_Template_Status extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_is_reply_trash
-	 * @todo   Implement test_bbp_is_reply_trash().
 	 */
 	public function test_bbp_is_reply_trash() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+
+		$this->assertFalse( bbp_is_reply_trash( $reply_id ) );
+		wp_trash_post( $reply_id );
+		$this->assertTrue( bbp_is_reply_trash( $reply_id ) );
 	}
 
 	/**
@@ -202,12 +217,23 @@ class BBP_Tests_Repliess_Template_Status extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_is_reply_anonymous
-	 * @todo   Implement test_bbp_is_reply_anonymous().
 	 */
 	public function test_bbp_is_reply_anonymous() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$user_id  = $this->factory->user->create();
+		$topic_id = $this->factory->topic->create();
+		$reply_id = $this->factory->reply->create( array(
+			'post_author' => $user_id,
+			'post_parent' => $topic_id,
+		) );
+
+		$this->assertFalse( bbp_is_reply_anonymous( $reply_id ) );
+		update_post_meta( $reply_id, '_bbp_anonymous_name', 'Guest' );
+		$this->assertTrue( bbp_is_reply_anonymous( $reply_id ) );
+		delete_post_meta( $reply_id, '_bbp_anonymous_name' );
+		update_post_meta( $reply_id, '_bbp_anonymous_email', 'guest@example.org' );
+		$this->assertTrue( bbp_is_reply_anonymous( $reply_id ) );
+		delete_post_meta( $reply_id, '_bbp_anonymous_email' );
+		wp_update_post( array( 'ID' => $reply_id, 'post_author' => 0 ) );
+		$this->assertTrue( bbp_is_reply_anonymous( $reply_id ) );
 	}
 }
