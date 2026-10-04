@@ -70,28 +70,6 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 	}
 
 	/**
-	 * @covers ::bbp_new_reply_handler
-	 * @todo   Implement test_bbp_new_reply_handler().
-	 */
-	public function test_bbp_new_reply_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
-	 * @covers ::bbp_edit_reply_handler
-	 * @todo   Implement test_bbp_edit_reply_handler().
-	 */
-	public function test_bbp_edit_reply_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
 	 * @covers ::bbp_update_reply
 	 */
 	public function test_bbp_update_reply() {
@@ -284,17 +262,6 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 	}
 
 	/**
-	 * @covers ::bbp_move_reply_handler
-	 * @todo   Implement test_bbp_move_reply_handler().
-	 */
-	public function test_bbp_move_reply_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
-	}
-
-	/**
 	 * @covers ::bbp_move_reply_count
 	 */
 	public function test_bbp_move_reply_count() {
@@ -421,13 +388,76 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_toggle_reply_handler
-	 * @todo   Implement test_bbp_toggle_reply_handler().
 	 */
 	public function test_bbp_toggle_reply_handler() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id         = $this->factory->forum->create();
+		$topic_id         = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$reply_id         = $this->factory->reply->create( array(
+			'post_parent' => $topic_id,
+			'post_status' => bbp_get_pending_status_id(),
+			'reply_meta'  => array( 'forum_id' => $forum_id, 'topic_id' => $topic_id ),
+		) );
+		$old_get          = $_GET;
+		$old_request      = $_REQUEST;
+		$old_user         = get_current_user_id();
+		$old_errors       = bbpress()->errors;
+		$redirect         = null;
+		$seen             = array();
+		$prevent_redirect = function ( $location ) use ( &$redirect ) {
+			$redirect = $location;
+			throw new RuntimeException( 'Reply toggle redirect.' );
+		};
+		$record_toggle = function ( $status, $data, $action ) use ( &$seen ) {
+			$seen[] = array( $status, $data, $action );
+		};
+
+		$_GET             = array();
+		$_REQUEST         = array();
+		bbpress()->errors = new WP_Error();
+		add_filter( 'wp_redirect', $prevent_redirect );
+		add_action( 'bbp_toggle_reply_handler', $record_toggle, 10, 3 );
+
+		try {
+			$this->assertNull( bbp_toggle_reply_handler( 'bbp_toggle_reply_approve' ) );
+			$_GET['reply_id'] = $reply_id;
+			$this->assertNull( bbp_toggle_reply_handler( 'invalid-action' ) );
+			$this->assertTrue( bbp_is_reply_pending( $reply_id ) );
+
+			$_GET['reply_id'] = 999999;
+			bbp_toggle_reply_handler( 'bbp_toggle_reply_approve' );
+			$this->assertContains( 'bbp_toggle_reply_missing', bbpress()->errors->get_error_codes() );
+
+			$_GET['reply_id'] = $reply_id;
+			$this->set_current_user( 0 );
+			bbp_toggle_reply_handler( 'bbp_toggle_reply_approve' );
+			$this->assertContains( 'bbp_toggle_reply_permission', bbpress()->errors->get_error_codes() );
+			$this->assertTrue( bbp_is_reply_pending( $reply_id ) );
+
+			$admin_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
+			bbp_set_user_role( $admin_id, bbp_get_keymaster_role() );
+			$this->set_current_user( $admin_id );
+			$_REQUEST['_wpnonce'] = wp_create_nonce( 'approve-' . bbp_get_reply_post_type() . '_' . $reply_id );
+			try {
+				bbp_toggle_reply_handler( 'bbp_toggle_reply_approve' );
+				$this->fail( 'Approving the reply should redirect.' );
+			} catch ( RuntimeException $exception ) {
+				if ( 'Reply toggle redirect.' !== $exception->getMessage() ) {
+					throw $exception;
+				}
+			}
+			$this->assertSame( bbp_get_public_status_id(), get_post_status( $reply_id ) );
+			$this->assertSame( bbp_get_reply_url( $reply_id ), $redirect );
+			$this->assertCount( 1, $seen );
+			$this->assertSame( $reply_id, $seen[0][1]['ID'] );
+			$this->assertSame( 'bbp_toggle_reply_approve', $seen[0][2] );
+		} finally {
+			remove_action( 'bbp_toggle_reply_handler', $record_toggle, 10 );
+			remove_filter( 'wp_redirect', $prevent_redirect );
+			$_GET             = $old_get;
+			$_REQUEST         = $old_request;
+			bbpress()->errors = $old_errors;
+			$this->set_current_user( $old_user );
+		}
 	}
 
 	/**
@@ -550,13 +580,53 @@ class BBP_Tests_Replies_Functions_Reply extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_check_reply_edit
-	 * @todo   Implement test_bbp_check_reply_edit().
 	 */
 	public function test_bbp_check_reply_edit() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id         = $this->factory->forum->create();
+		$topic_id         = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$reply_id         = $this->factory->reply->create( array(
+			'post_parent' => $topic_id,
+			'reply_meta'  => array( 'forum_id' => $forum_id, 'topic_id' => $topic_id ),
+		) );
+		$old_user         = get_current_user_id();
+		$old_reply_id     = bbpress()->current_reply_id;
+		$redirect         = null;
+		$prevent_redirect = function ( $location ) use ( &$redirect ) {
+			$redirect = $location;
+			throw new RuntimeException( 'Reply edit redirect.' );
+		};
+
+		bbpress()->current_reply_id = $reply_id;
+		add_filter( 'wp_redirect', $prevent_redirect );
+
+		try {
+			$this->set_current_user( 0 );
+			$this->assertNull( bbp_check_reply_edit() );
+			$this->assertNull( $redirect );
+
+			add_filter( 'bbp_is_reply_edit', '__return_true' );
+			try {
+				bbp_check_reply_edit();
+				$this->fail( 'Anonymous reply editing should redirect.' );
+			} catch ( RuntimeException $exception ) {
+				if ( 'Reply edit redirect.' !== $exception->getMessage() ) {
+					throw $exception;
+				}
+			}
+			$this->assertSame( bbp_get_reply_url( $reply_id ), $redirect );
+
+			$admin_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
+			bbp_set_user_role( $admin_id, bbp_get_keymaster_role() );
+			$this->set_current_user( $admin_id );
+			$redirect = null;
+			$this->assertNull( bbp_check_reply_edit() );
+			$this->assertNull( $redirect );
+		} finally {
+			remove_filter( 'bbp_is_reply_edit', '__return_true' );
+			remove_filter( 'wp_redirect', $prevent_redirect );
+			bbpress()->current_reply_id = $old_reply_id;
+			$this->set_current_user( $old_user );
+		}
 	}
 
 	/**
