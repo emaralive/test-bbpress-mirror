@@ -316,6 +316,9 @@ class BBP_Tests_Users_Functions_Permissions extends BBP_UnitTestCase {
 		$this->assertArrayHasKey( bbp_get_keymaster_role(), bbp_get_user_editable_forum_roles( $target_id ) );
 	}
 
+	/**
+	 * @covers ::bbp_filter_user_edit_post_data
+	 */
 	public function test_user_edit_post_data_enforces_field_permissions() {
 		$moderator_id = $this->factory->user->create();
 		$target_id    = $this->factory->user->create(
@@ -348,6 +351,9 @@ class BBP_Tests_Users_Functions_Permissions extends BBP_UnitTestCase {
 		$this->assertArrayNotHasKey( 'role', $data );
 	}
 
+	/**
+	 * @covers ::bbp_filter_user_edit_post_data
+	 */
 	public function test_user_edit_post_data_removes_contact_methods_with_profile_fields() {
 		$moderator_id = $this->factory->user->create();
 		$target_id    = $this->factory->user->create( array( 'role' => 'subscriber' ) );
@@ -372,6 +378,9 @@ class BBP_Tests_Users_Functions_Permissions extends BBP_UnitTestCase {
 		$this->assertArrayNotHasKey( 'test_contact', $data );
 	}
 
+	/**
+	 * @covers ::bbp_user_email_change_requires_confirmation
+	 */
 	public function test_email_confirmation_policy_distinguishes_self_and_moderator_edits() {
 		$moderator_id = $this->factory->user->create();
 		$target_id    = $this->factory->user->create( array( 'role' => 'subscriber' ) );

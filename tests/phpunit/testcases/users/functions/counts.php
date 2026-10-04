@@ -653,6 +653,7 @@ class BBP_Tests_Users_Functions_Counts extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_update_counts_on_post_author_change
+	 * @covers ::bbp_recalculate_engagements_on_post_author_change
 	 */
 	public function test_changing_post_authors_updates_user_counts() {
 		$old_user_id = $this->factory->user->create();
@@ -674,9 +675,11 @@ class BBP_Tests_Users_Functions_Counts extends BBP_UnitTestCase {
 
 		wp_update_post( array( 'ID' => $topic_id, 'post_author' => $new_user_id ) );
 		$this->assertSame( 2, bbp_get_topic_voice_count( $topic_id, true ) );
+		$this->assertEqualsCanonicalizing( array( $old_user_id, $new_user_id ), bbp_get_topic_engagements( $topic_id ) );
 
 		wp_update_post( array( 'ID' => $reply_id, 'post_author' => $new_user_id ) );
 		$this->assertSame( 1, bbp_get_topic_voice_count( $topic_id, true ) );
+		$this->assertSame( array( $new_user_id ), bbp_get_topic_engagements( $topic_id ) );
 
 		$this->assertSame( 0, bbp_get_user_topic_count( $old_user_id, true ) );
 		$this->assertSame( 0, bbp_get_user_reply_count( $old_user_id, true ) );

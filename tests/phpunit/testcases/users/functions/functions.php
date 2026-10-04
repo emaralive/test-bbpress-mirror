@@ -263,6 +263,57 @@
 	}
 
 	/**
+	 * @covers ::bbp_get_user_ids_from_nicenames
+	 */
+	public function test_bbp_get_user_ids_from_nicenames() {
+		$first_id  = $this->factory->user->create( array( 'user_nicename' => 'bbp-nicename-a' ) );
+		$second_id = $this->factory->user->create( array( 'user_nicename' => 'bbp-nicename-b' ) );
+		$seen      = null;
+		$record    = function ( $ids, $nicenames ) use ( &$seen ) {
+			$seen = $nicenames;
+			return $ids;
+		};
+
+		$this->assertSame( array(), bbp_get_user_ids_from_nicenames() );
+		$this->assertSame( array(), bbp_get_user_ids_from_nicenames( 'missing-nicename' ) );
+		add_filter( 'bbp_get_user_ids_from_nicenames', $record, 10, 2 );
+
+		try {
+			$ids = bbp_get_user_ids_from_nicenames( 'BBP NICENAME A,BBP NICENAME B' );
+			$this->assertEqualsCanonicalizing( array( $first_id, $second_id ), array_map( 'intval', $ids ) );
+			$this->assertSame( array( 'bbp-nicename-a', 'bbp-nicename-b' ), $seen );
+		} finally {
+			remove_filter( 'bbp_get_user_ids_from_nicenames', $record, 10 );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_get_user_nicenames_from_ids
+	 */
+	public function test_bbp_get_user_nicenames_from_ids() {
+		$first_id  = $this->factory->user->create( array( 'user_nicename' => 'bbp-nicename-a' ) );
+		$second_id = $this->factory->user->create( array( 'user_nicename' => 'bbp-nicename-b' ) );
+		$input     = array( $first_id, $second_id );
+		$seen      = null;
+		$record    = function ( $nicenames, $ids ) use ( &$seen ) {
+			$seen = $ids;
+			return $nicenames;
+		};
+
+		$this->assertSame( array(), bbp_get_user_nicenames_from_ids() );
+		$this->assertSame( array(), bbp_get_user_nicenames_from_ids( array( PHP_INT_MAX ) ) );
+		add_filter( 'bbp_get_user_nicenames_from_ids', $record, 10, 2 );
+
+		try {
+			$nicenames = bbp_get_user_nicenames_from_ids( $input );
+			$this->assertEqualsCanonicalizing( array( 'bbp-nicename-a', 'bbp-nicename-b' ), $nicenames );
+			$this->assertSame( $input, $seen );
+		} finally {
+			remove_filter( 'bbp_get_user_nicenames_from_ids', $record, 10 );
+		}
+	}
+
+	/**
 	 * @covers ::bbp_edit_user_handler
 	 */
 	public function test_bbp_edit_user_handler() {
