@@ -270,6 +270,11 @@ function bbp_new_reply_handler( $action = '' ) {
 		}
 	}
 
+	// The topic, forum, or one of its ancestors still requires a password
+	if ( ! empty( $topic_id ) && bbp_get_password_required_id( $topic_id ) ) {
+		bbp_add_error( 'bbp_new_reply_topic_password', __( '<strong>Error</strong>: You must enter the topic or forum password to create new replies.', 'bbpress' ) );
+	}
+
 	/** Unfiltered HTML *******************************************************/
 
 	// Remove kses filters from title and content for capable users and if the nonce is verified

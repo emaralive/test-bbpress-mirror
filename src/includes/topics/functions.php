@@ -246,6 +246,11 @@ function bbp_new_topic_handler( $action = '' ) {
 			} elseif ( bbp_is_forum_hidden( $forum_id ) && ! current_user_can( 'read_forum', $forum_id ) ) {
 				bbp_add_error( 'bbp_new_topic_forum_hidden', __( '<strong>Error</strong>: This forum is hidden and you do not have the capability to read or create new topics in it.', 'bbpress' ) );
 			}
+
+			// The forum or one of its ancestors still requires a password
+			if ( bbp_get_password_required_id( $forum_id ) ) {
+				bbp_add_error( 'bbp_new_topic_forum_password', __( '<strong>Error</strong>: You must enter the forum password to create new topics.', 'bbpress' ) );
+			}
 		}
 	}
 
