@@ -111,10 +111,56 @@
 
 	/**
 	 * @covers ::bbp_set_current_anonymous_user_data
-	 * @todo   Test the Set-Cookie headers from an HTTP request.
 	 */
 	public function test_bbp_set_current_anonymous_user_data() {
-		$this->markTestIncomplete( 'The successful cookie path requires an HTTP test harness.' );
+		$listener = stream_socket_server( 'tcp://127.0.0.1:0', $error_number, $error_string );
+		$this->assertIsResource( $listener, $error_string );
+		$address = stream_socket_get_name( $listener, false );
+		$port    = (int) substr( strrchr( $address, ':' ), 1 );
+		fclose( $listener );
+
+		$runner  = dirname( __DIR__, 3 ) . '/includes/anonymous-cookie-runner.php';
+		$command = array( PHP_BINARY, '-d', 'output_buffering=1048576', '-S', '127.0.0.1:' . $port, $runner );
+		$pipes   = array();
+		$env     = array_merge( getenv(), array( 'BBP_TEST_MULTISITE' => is_multisite() ? '1' : '0' ) );
+		$server  = proc_open( $command, array(
+			0 => array( 'pipe', 'r' ),
+			1 => array( 'pipe', 'w' ),
+			2 => array( 'pipe', 'w' ),
+		), $pipes, dirname( __DIR__, 4 ), $env );
+		$this->assertIsResource( $server );
+		fclose( $pipes[0] );
+
+		try {
+			$ready = false;
+			for ( $attempt = 0; $attempt < 100; ++$attempt ) {
+				$socket = @fsockopen( '127.0.0.1', $port, $error_number, $error_string, 0.1 );
+				if ( is_resource( $socket ) ) {
+					fclose( $socket );
+					$ready = true;
+					break;
+				}
+				usleep( 50000 );
+			}
+			$this->assertTrue( $ready, 'The cookie test server did not start.' );
+
+			$response = wp_remote_get( 'http://127.0.0.1:' . $port . '/', array( 'timeout' => 15 ) );
+			$this->assertFalse( is_wp_error( $response ), is_wp_error( $response ) ? $response->get_error_message() : '' );
+			$this->assertSame( 200, wp_remote_retrieve_response_code( $response ) );
+
+			$cookies = array();
+			foreach ( wp_remote_retrieve_cookies( $response ) as $cookie ) {
+				$cookies[ $cookie->name ] = $cookie->value;
+			}
+			$this->assertSame( 'Guest User', $cookies[ 'comment_author_' . COOKIEHASH ] );
+			$this->assertSame( 'guest@example.org', $cookies[ 'comment_author_email_' . COOKIEHASH ] );
+			$this->assertSame( 'https://example.org/', $cookies[ 'comment_author_url_' . COOKIEHASH ] );
+		} finally {
+			proc_terminate( $server );
+			fclose( $pipes[1] );
+			fclose( $pipes[2] );
+			proc_close( $server );
+		}
 	}
 
 	/**
