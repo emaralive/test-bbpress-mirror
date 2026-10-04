@@ -12,6 +12,23 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 	protected $old_current_user;
     protected $keymaster_id;
 
+	private function assert_topic_action( $function, $hook ) {
+		$topic_id = $this->factory->topic->create();
+		$seen     = array();
+		$callback = function ( $id ) use ( &$seen ) {
+			$seen[] = $id;
+		};
+		add_action( $hook, $callback );
+
+		try {
+			$this->assertFalse( $function( PHP_INT_MAX ) );
+			$function( $topic_id );
+			$this->assertSame( array( $topic_id ), $seen );
+		} finally {
+			remove_action( $hook, $callback );
+		}
+	}
+
 	/**
 	 * @group canonical
 	 * @covers ::bbp_insert_topic
@@ -537,24 +554,23 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_update_topic_revision_log
-	 * @todo   Implement test_bbp_update_topic_revision_log().
 	 */
 	public function test_bbp_update_topic_revision_log() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$user_id  = $this->factory->user->create();
+		$args     = array( 'topic_id' => $topic_id, 'author_id' => $user_id, 'revision_id' => 17, 'reason' => 'Clarify wording' );
+
+		$this->assertNotFalse( bbp_update_topic_revision_log( $args ) );
+		$log = bbp_get_topic_raw_revision_log( $topic_id );
+		$this->assertSame( $user_id, $log[17]['author'] );
+		$this->assertSame( 'Clarify wording', $log[17]['reason'] );
 	}
 
 	/**
 	 * @covers ::bbp_delete_topic
-	 * @todo   Implement test_bbp_delete_topic().
 	 */
 	public function test_bbp_delete_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_topic_action( 'bbp_delete_topic', 'bbp_delete_topic' );
 	}
 
 	/**
@@ -586,24 +602,24 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_trash_topic
-	 * @todo   Implement test_bbp_trash_topic().
 	 */
 	public function test_bbp_trash_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_topic_action( 'bbp_trash_topic', 'bbp_trash_topic' );
 	}
 
 	/**
 	 * @covers ::bbp_trash_topic_replies
-	 * @todo   Implement test_bbp_trash_topic_replies().
 	 */
 	public function test_bbp_trash_topic_replies() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$public   = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		$trashed  = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		wp_trash_post( $trashed );
+
+		bbp_trash_topic_replies( $topic_id );
+		$this->assertSame( bbp_get_trash_status_id(), get_post_status( $public ) );
+		$this->assertSame( bbp_get_trash_status_id(), get_post_status( $trashed ) );
+		$this->assertSame( array( $public ), get_post_meta( $topic_id, '_bbp_pre_trashed_replies', true ) );
 	}
 
 	/**
@@ -657,35 +673,23 @@ class BBP_Tests_Topics_Functions_Topic extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_deleted_topic
-	 * @todo   Implement test_bbp_deleted_topic().
 	 */
 	public function test_bbp_deleted_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_topic_action( 'bbp_deleted_topic', 'bbp_deleted_topic' );
 	}
 
 	/**
 	 * @covers ::bbp_trashed_topic
-	 * @todo   Implement test_bbp_trashed_topic().
 	 */
 	public function test_bbp_trashed_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_topic_action( 'bbp_trashed_topic', 'bbp_trashed_topic' );
 	}
 
 	/**
 	 * @covers ::bbp_untrashed_topic
-	 * @todo   Implement test_bbp_untrashed_topic().
 	 */
 	public function test_bbp_untrashed_topic() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_topic_action( 'bbp_untrashed_topic', 'bbp_untrashed_topic' );
 	}
 
 	/**
