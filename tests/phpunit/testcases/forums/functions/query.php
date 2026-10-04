@@ -11,13 +11,30 @@ class BBP_Tests_Forums_Functions_Query extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_exclude_forum_ids
-	 * @todo   Implement test_bbp_exclude_forum_ids().
 	 */
 	public function test_bbp_exclude_forum_ids() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$hidden_id  = $this->factory->forum->create();
+		$private_id = $this->factory->forum->create();
+		bbp_hide_forum( $hidden_id );
+		bbp_privatize_forum( $private_id );
+		$this->set_current_user( 0 );
+
+		$excluded = bbp_exclude_forum_ids( 'array' );
+		$this->assertEqualSets( array( $hidden_id, $private_id ), $excluded );
+		$this->assertEqualSets( $excluded, wp_parse_id_list( bbp_exclude_forum_ids() ) );
+		$this->assertSame( array(
+			'key'     => '_bbp_forum_id',
+			'value'   => $excluded,
+			'type'    => 'NUMERIC',
+			'compare' => 'NOT IN',
+		), bbp_exclude_forum_ids( 'meta_query' ) );
+
+		$keymaster_id = $this->factory->user->create();
+		bbp_set_user_role( $keymaster_id, bbp_get_keymaster_role() );
+		$this->set_current_user( $keymaster_id );
+		$this->assertSame( array(), bbp_exclude_forum_ids( 'array' ) );
+		$this->assertSame( '', bbp_exclude_forum_ids() );
+		$this->assertSame( array(), bbp_exclude_forum_ids( 'meta_query' ) );
 	}
 
 	/**

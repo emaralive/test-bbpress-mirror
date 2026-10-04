@@ -10,6 +10,45 @@
 class BBP_Tests_Forums_Functions_Visibility extends BBP_UnitTestCase {
 
 	/**
+	 * Exercise a direct-URL visibility guard for a forum and its content.
+	 *
+	 * @param string $listener   Visibility guard callback.
+	 * @param string $visibility Restricted forum visibility.
+	 */
+	protected function assert_forum_visibility_guard( $listener, $visibility ) {
+		global $wp_query;
+
+		$posts    = $this->create_visibility_test_posts();
+		$previous = $wp_query;
+		$this->set_current_user( 0 );
+
+		try {
+			foreach ( array( 'forum', 'topic', 'reply' ) as $type ) {
+				$post_id = $posts[ "{$visibility}_{$type}" ];
+				$query   = new WP_Query();
+				$query->post        = get_post( $post_id );
+				$query->is_singular = true;
+				$query->set( 'post_type', get_post_type( $post_id ) );
+				$wp_query = $query;
+
+				call_user_func( $listener );
+				$this->assertTrue( $query->is_404(), "{$type} in {$visibility} forum was not denied" );
+			}
+
+			$query = new WP_Query();
+			$query->post        = get_post( $posts['public_forum'] );
+			$query->is_singular = true;
+			$query->set( 'post_type', bbp_get_forum_post_type() );
+			$wp_query = $query;
+
+			call_user_func( $listener );
+			$this->assertFalse( $query->is_404() );
+		} finally {
+			$wp_query = $previous;
+		}
+	}
+
+	/**
 	 * Create public, closed, private, and hidden content in a public forum.
 	 *
 	 * @return int[] Forum, topic, and reply IDs keyed by status.
@@ -1052,23 +1091,15 @@ class BBP_Tests_Forums_Functions_Visibility extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_forum_enforce_hidden
-	 * @todo   Implement test_bbp_forum_enforce_hidden().
 	 */
 	public function test_bbp_forum_enforce_hidden() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_forum_visibility_guard( 'bbp_forum_enforce_hidden', 'hidden' );
 	}
 
 	/**
 	 * @covers ::bbp_forum_enforce_private
-	 * @todo   Implement test_bbp_forum_enforce_private().
 	 */
 	public function test_bbp_forum_enforce_private() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$this->assert_forum_visibility_guard( 'bbp_forum_enforce_private', 'private' );
 	}
 }
