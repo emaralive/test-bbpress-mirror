@@ -910,24 +910,31 @@ class BBP_Tests_Admin_Tools extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_admin_repair_sticky
-	 * @todo   Implement test_bbp_admin_repair_sticky().
 	 */
 	public function test_bbp_admin_repair_sticky() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$first_forum  = $this->factory->forum->create();
+		$second_forum = $this->factory->forum->create();
+		$topic_id     = $this->factory->topic->create( array( 'post_parent' => $first_forum ) );
+		update_post_meta( $first_forum, '_bbp_sticky_topics', array( $topic_id ) );
+		update_post_meta( $second_forum, '_bbp_sticky_topics', array( $topic_id ) );
+
+		$this->assertSame( 0, bbp_admin_repair_sticky()[0] );
+		$this->assertSame( array( $topic_id ), get_post_meta( $first_forum, '_bbp_sticky_topics', true ) );
+		$this->assertSame( '', get_post_meta( $second_forum, '_bbp_sticky_topics', true ) );
 	}
 
 	/**
 	 * @covers ::bbp_admin_repair_closed_topics
-	 * @todo   Implement test_bbp_admin_repair_closed_topics().
 	 */
 	public function test_bbp_admin_repair_closed_topics() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create( array( 'post_status' => bbp_get_closed_status_id() ) );
+		delete_post_meta( $topic_id, '_bbp_status' );
+
+		$result = bbp_admin_repair_closed_topics();
+		$this->assertSame( 0, $result[0] );
+		$this->assertStringContainsString( '1 closed topic repaired', $result[1] );
+		$this->assertSame( 'publish', get_post_meta( $topic_id, '_bbp_status', true ) );
+		$this->assertStringContainsString( '0 closed topics repaired', bbp_admin_repair_closed_topics()[1] );
 	}
 
 	/**
@@ -998,24 +1005,29 @@ class BBP_Tests_Admin_Tools extends BBP_UnitTestCase {
 
 	/**
 	 * @covers ::bbp_admin_repair_topic_meta
-	 * @todo   Implement test_bbp_admin_repair_topic_meta().
 	 */
 	public function test_bbp_admin_repair_topic_meta() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		update_post_meta( $topic_id, '_bbp_topic_id', 999 );
+		update_post_meta( $reply_id, '_bbp_topic_id', 999 );
+
+		$this->assertSame( 0, bbp_admin_repair_topic_meta()[0] );
+		$this->assertSame( (string) $topic_id, get_post_meta( $topic_id, '_bbp_topic_id', true ) );
+		$this->assertSame( (string) $topic_id, get_post_meta( $reply_id, '_bbp_topic_id', true ) );
 	}
 
 	/**
 	 * @covers ::bbp_admin_repair_reply_menu_order
-	 * @todo   Implement test_bbp_admin_repair_reply_menu_order().
 	 */
 	public function test_bbp_admin_repair_reply_menu_order() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id = $this->factory->topic->create();
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+		update_post_meta( $reply_id, '_bbp_reply_to', $reply_id );
+
+		$this->assertSame( 1, bbp_admin_repair_reply_menu_order()[0] );
+		$this->assertFalse( metadata_exists( 'post', $reply_id, '_bbp_reply_to' ) );
 	}
 
 	/**
