@@ -115,6 +115,45 @@ class BBP_Tests_Topics_Functions_Permissions extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_merge_topic_handler
 	 */
+	public function test_merge_moves_replies_with_non_public_statuses() {
+		$user_id              = $this->factory->user->create();
+		$source_forum_id      = $this->factory->forum->create();
+		$destination_forum_id = $this->factory->forum->create();
+		$source_topic_id      = $this->factory->topic->create( array( 'post_parent' => $source_forum_id ) );
+		$destination_topic_id = $this->factory->topic->create( array( 'post_parent' => $destination_forum_id ) );
+		$reply_ids            = array();
+
+		foreach ( array( bbp_get_public_status_id(), bbp_get_pending_status_id(), bbp_get_spam_status_id(), bbp_get_trash_status_id() ) as $status ) {
+			$reply_ids[ $status ] = $this->factory->reply->create( array(
+				'post_parent' => $source_topic_id,
+				'post_status' => $status,
+				'reply_meta'  => array(
+					'forum_id' => $source_forum_id,
+					'topic_id' => $source_topic_id,
+				),
+			) );
+		}
+
+		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
+		$this->set_current_user( $user_id );
+		bbpress()->errors = new WP_Error();
+
+		$this->assertTrue( $this->submit_topic_merge( $source_topic_id, $destination_topic_id ) );
+
+		foreach ( $reply_ids as $status => $reply_id ) {
+			$this->assertSame( $status, get_post_status( $reply_id ) );
+			$this->assertSame( $destination_topic_id, wp_get_post_parent_id( $reply_id ) );
+			$this->assertSame( $destination_topic_id, bbp_get_reply_topic_id( $reply_id ) );
+			$this->assertSame( $destination_forum_id, bbp_get_reply_forum_id( $reply_id ) );
+		}
+
+		$this->assertSame( 2, bbp_get_topic_reply_count( $destination_topic_id, true ) );
+		$this->assertSame( 3, bbp_get_topic_reply_count_hidden( $destination_topic_id, true ) );
+	}
+
+	/**
+	 * @covers ::bbp_merge_topic_handler
+	 */
 	public function test_moderator_cannot_merge_topic_into_itself() {
 		$user_id  = $this->factory->user->create();
 		$forum_id = $this->factory->forum->create();
