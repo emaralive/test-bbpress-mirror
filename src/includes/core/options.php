@@ -460,8 +460,11 @@ function bbp_allow_search( $default = 1 ) {
  */
 function bbp_allow_threaded_replies( $default = 0 ) {
 
+	// Apply the legacy filter first for backward compatibility
+	$allow = (bool) apply_filters( '_bbp_allow_threaded_replies', (bool) get_option( '_bbp_allow_threaded_replies', $default ) );
+
 	// Filter & return
-	return (bool) apply_filters( '_bbp_allow_threaded_replies', (bool) get_option( '_bbp_allow_threaded_replies', $default ) );
+	return (bool) apply_filters( 'bbp_allow_threaded_replies', $allow );
 }
 
 /**
