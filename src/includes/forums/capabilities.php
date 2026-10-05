@@ -62,9 +62,20 @@ function bbp_map_forum_meta_caps( $caps = array(), $cap = '', $user_id = 0, $arg
 			break;
 
 		case 'read_forum' :
+			$can_read = user_can( $user_id, 'spectate' ) || bbp_is_anonymous();
+
+			if ( ! $can_read && ! empty( $args[0] ) ) {
+				/**
+				 * Allow integrations to grant read access to a specific forum without
+				 * requiring the bbPress spectate capability.
+				 *
+				 * @since 2.6.20 bbPress (r7833)
+				 */
+				$can_read = (bool) apply_filters( 'bbp_allow_read_without_spectate', false, $user_id, (int) $args[0], $cap );
+			}
 
 			// User cannot spectate
-			if ( ! user_can( $user_id, 'spectate' ) && ! bbp_is_anonymous() ) {
+			if ( ! $can_read ) {
 				$caps = array( 'do_not_allow' );
 
 			// Do some post ID based logic
@@ -296,6 +307,13 @@ function bbp_allow_forums_of_user( $forum_ids = array(), $user_id = 0 ) {
 
 	// Per-forum Moderators
 	if ( bbp_allow_forum_mods() ) {
+		// Capability checks read each forum and its metadata. Load large sets in
+		// batches instead of issuing two queries for every forum.
+		if ( count( $forum_ids ) > 20 ) {
+			foreach ( array_chunk( wp_parse_id_list( $forum_ids ), 500 ) as $batch ) {
+				_prime_post_caches( $batch, false, true );
+			}
+		}
 
 		// Loop through forum IDs
 		foreach ( $forum_ids as $key => $forum_id ) {

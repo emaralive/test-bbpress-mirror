@@ -142,12 +142,27 @@ class BBP_Forums_Group_Extension extends BP_Group_Extension {
 		add_filter( 'bbp_subscription_user_can_view_forum', array( $this, 'subscription_user_can_view_forum' ), 10, 3 );
 
 		// Restrict private and hidden group forums outside of group requests
+		add_filter( 'bbp_allow_read_without_spectate', array( $this, 'allow_group_forum_read_without_role' ), 10, 4 );
 		add_filter( 'bbp_map_meta_caps',              array( $this, 'map_group_forum_read_meta_caps' ), 20, 4 );
 		add_filter( 'bbp_get_excluded_forum_ids',     array( $this, 'exclude_group_forum_ids'        ), 20    );
 
+		// BuddyPress rewrites resolve the group during query parsing.
+		if ( function_exists( 'bp_core_get_query_parser' ) && ( 'rewrites' === bp_core_get_query_parser() ) && ! ( bp_is_single_item() && bp_is_group() && bp_is_current_action( $this->slug ) ) ) {
+			add_action( 'bp_parse_query', array( $this, 'on_group_forum_page' ), 20 );
+		} else {
+			$this->on_group_forum_page();
+		}
+	}
+
+	/**
+	 * Add request-specific filters after the group URL has been parsed.
+	 *
+	 * @since 2.6.20 bbPress (r7833)
+	 */
+	public function on_group_forum_page() {
 		/** Caps **************************************************************/
 
-		// Only add these filters if inside a group forum
+		// Only add these filters if inside a group forum.
 		if ( bp_is_single_item() && bp_is_group() && bp_is_current_action( $this->slug ) ) {
 
 			// Ensure bbp_is_single_forum() returns true on group forums.
@@ -201,6 +216,47 @@ class BBP_Forums_Group_Extension extends BP_Group_Extension {
 	}
 
 	/**
+	 * Allow an active group member without a bbPress role past the spectate gate.
+	 *
+	 * @since 2.6.20 bbPress (r7833)
+	 *
+	 * @param bool $allow Whether to bypass the spectate gate.
+	 * @param int  $user_id User ID.
+	 * @param int  $post_id Object ID.
+	 * @param string $cap Requested read capability.
+	 * @return bool Whether this member may read the group content.
+	 */
+	public function allow_group_forum_read_without_role( $allow, $user_id, $post_id, $cap ) {
+		if ( $allow || ( $user_id <= 0 ) || bbp_get_user_role( $user_id ) || ! bbp_is_user_active( $user_id ) ) {
+			return $allow;
+		}
+
+		switch ( $cap ) {
+			case 'read_forum' :
+				$forum_id = bbp_is_forum( $post_id ) ? (int) $post_id : 0;
+				break;
+
+			case 'read_topic' :
+				$forum_id = bbp_is_topic( $post_id ) ? bbp_get_topic_forum_id( $post_id ) : 0;
+				break;
+
+			case 'read_reply' :
+				$forum_id = bbp_is_reply( $post_id ) ? bbp_get_reply_forum_id( $post_id ) : 0;
+				break;
+
+			default :
+				$forum_id = 0;
+				break;
+		}
+
+		if ( ! empty( $forum_id ) && ( true === $this->user_can_view_group_forum( $user_id, $forum_id ) ) ) {
+			$allow = ( 'read_forum' === $cap ) || user_can( $user_id, 'read_forum', $forum_id );
+		}
+
+		return $allow;
+	}
+
+	/**
 	 * Map read access for private and hidden group forums in every request.
 	 *
 	 * @since 2.7.0 bbPress (r7495)
@@ -212,19 +268,49 @@ class BBP_Forums_Group_Extension extends BP_Group_Extension {
 	 * @return array Actual capabilities for the meta capability.
 	 */
 	public function map_group_forum_read_meta_caps( $caps = array(), $cap = '', $user_id = 0, $args = array() ) {
-		if ( ( 'read_forum' !== $cap ) || empty( $args[0] ) ) {
+		if ( ! in_array( $cap, array( 'read_forum', 'read_topic', 'read_reply' ), true ) || empty( $args[0] ) ) {
 			return $caps;
 		}
 
 		// Preserve an earlier hard denial, including inactive users and
-		// restricted ancestors the user cannot read
+		// restricted ancestors the user cannot read.
 		if ( in_array( 'do_not_allow', $caps, true ) ) {
 			return $caps;
 		}
 
-		$can_view = $this->user_can_view_group_forum( $user_id, $args[0] );
+		$post_id  = (int) $args[0];
+		$forum_id = ( 'read_forum' === $cap )
+			? $post_id
+			: ( ( 'read_topic' === $cap ) ? bbp_get_topic_forum_id( $post_id ) : bbp_get_reply_forum_id( $post_id ) );
+		$can_view = $this->user_can_view_group_forum( $user_id, $forum_id );
+		$no_role  = ( $user_id > 0 ) && ( true === $can_view ) && ! bbp_get_user_role( $user_id );
 
-		if ( null !== $can_view ) {
+		if ( ( 'read_forum' !== $cap ) && ( false === $can_view ) ) {
+			return array( 'do_not_allow' );
+		}
+
+		// Group membership grants read access even without a bbPress role.
+		if ( $no_role ) {
+			if ( 'read_forum' === $cap ) {
+				foreach ( bbp_get_forum_ancestors( $forum_id ) as $ancestor_id ) {
+					if ( bbp_is_forum_restricted( $ancestor_id, false ) && ! user_can( $user_id, 'read_forum', $ancestor_id ) ) {
+						return $caps;
+					}
+				}
+			} else {
+				if ( ! in_array( 'spectate', $caps, true ) || ! user_can( $user_id, 'read_forum', $forum_id ) || ( bbp_get_public_status_id() !== get_post_status( $post_id ) ) ) {
+					return $caps;
+				}
+
+				if ( ( 'read_reply' === $cap ) && ! user_can( $user_id, 'read_topic', bbp_get_reply_topic_id( $post_id ) ) ) {
+					return $caps;
+				}
+			}
+
+			return array( 'exist' );
+		}
+
+		if ( ( 'read_forum' === $cap ) && ( null !== $can_view ) ) {
 			$caps = $can_view
 				? array( 'participate' )
 				: array( 'do_not_allow' );
@@ -243,17 +329,35 @@ class BBP_Forums_Group_Extension extends BP_Group_Extension {
 	 * @return array Forum IDs the user cannot view.
 	 */
 	public function exclude_group_forum_ids( $forum_ids ) {
-		$user_id    = bbp_get_current_user_id();
-		$restricted = array_merge( bbp_get_private_forum_ids(), bbp_get_hidden_forum_ids() );
-		$restricted = wp_parse_id_list( $restricted );
+		$user_id      = bbp_get_current_user_id();
+		$restricted   = array_merge( bbp_get_private_forum_ids(), bbp_get_hidden_forum_ids() );
+		$restricted   = wp_parse_id_list( $restricted );
+		$excluded     = array_fill_keys( wp_parse_id_list( $forum_ids ), true );
+		$group_forums = array();
+
+		// Prime group associations in one lookup on large sites.
+		if ( count( $restricted ) > 20 ) {
+			update_meta_cache( 'post', $restricted );
+		}
 
 		foreach ( $restricted as $forum_id ) {
-			// Skip forums that are not attached to groups
-			if ( empty( bbp_get_forum_group_ids( $forum_id ) ) ) {
-				continue;
+			if ( ! empty( bbp_get_forum_group_ids( $forum_id ) ) ) {
+				$group_forums[] = $forum_id;
 			}
+		}
 
+		// Cap checks read forum posts. Prime only the attached group forums.
+		if ( count( $group_forums ) > 20 ) {
+			_prime_post_caches( $group_forums, false, false );
+		}
+
+		foreach ( $group_forums as $forum_id ) {
 			if ( ! user_can( $user_id, 'read_forum', $forum_id ) ) {
+				// Core already excluded this forum and all its descendants.
+				if ( isset( $excluded[ $forum_id ] ) ) {
+					continue;
+				}
+
 				// Exclude descendants too, except those this user can read.
 				$parents    = array( $forum_id );
 				$seen       = array( $forum_id => true );

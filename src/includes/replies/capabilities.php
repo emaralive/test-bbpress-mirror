@@ -58,9 +58,14 @@ function bbp_map_reply_meta_caps( $caps = array(), $cap = '', $user_id = 0, $arg
 		/** Reading ***********************************************************/
 
 		case 'read_reply' :
+			$can_read = user_can( $user_id, 'spectate' ) || bbp_is_anonymous();
+
+			if ( ! $can_read && ! empty( $args[0] ) ) {
+				$can_read = (bool) apply_filters( 'bbp_allow_read_without_spectate', false, $user_id, (int) $args[0], $cap );
+			}
 
 			// User cannot spectate
-			if ( ! user_can( $user_id, 'spectate' ) && ! bbp_is_anonymous() ) {
+			if ( ! $can_read ) {
 				$caps = array( 'do_not_allow' );
 
 			// Do some post ID based logic
