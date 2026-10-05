@@ -469,6 +469,46 @@ class BBP_Tests_Forums_Functions_Visibility extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers ::bbp_get_excluded_forum_ids
+	 * @covers ::bbp_forum_query_all_descendant_ids
+	 */
+	public function test_large_exclusion_list_includes_descendants_and_invalidates_cache() {
+		global $wpdb;
+
+		$parents    = $this->factory->forum->create_many( 21 );
+		$child      = $this->factory->forum->create( array( 'post_parent' => $parents[0] ) );
+		$grandchild = $this->factory->forum->create( array( 'post_parent' => $child ) );
+
+		foreach ( $parents as $parent_id ) {
+			bbp_hide_forum( $parent_id );
+		}
+		wp_trash_post( $child );
+		$this->set_current_user( 0 );
+
+		$child_queries = array();
+		$record_query  = function( $query ) use ( &$child_queries ) {
+			if ( false !== strpos( $query, 'SELECT ID FROM' ) && false !== strpos( $query, 'post_parent' ) ) {
+				$child_queries[] = $query;
+			}
+
+			return $query;
+		};
+		wp_cache_flush();
+		add_filter( 'query', $record_query );
+		$start_queries = $wpdb->num_queries;
+		$excluded = bbp_get_excluded_forum_ids();
+		$query_count = $wpdb->num_queries - $start_queries;
+		remove_filter( 'query', $record_query );
+		$this->assertLessThan( 5, count( $child_queries ) );
+		$this->assertLessThan( 15, $query_count );
+		$this->assertContains( $child, $excluded );
+		$this->assertContains( $grandchild, $excluded );
+
+		$new_child = $this->factory->forum->create( array( 'post_parent' => $parents[0] ) );
+		$this->assertContains( $new_child, bbp_get_excluded_forum_ids() );
+	}
+
+	/**
 	 * @covers ::bbp_repair_forum_visibility
 	 */
 	public function test_bbp_repair_forum_visibility() {

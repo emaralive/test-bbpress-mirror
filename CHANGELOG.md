@@ -19,6 +19,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Restored private BuddyPress group forum access for members without a bbPress role and reduced queries for large restricted forum lists.
 - Applied the public threaded-replies setting filter while preserving its legacy underscored hook.
 - Avoided unnecessary post queries during BuddyPress group capability checks.
 - Kept objects without assigned moderators from listing unrelated users.

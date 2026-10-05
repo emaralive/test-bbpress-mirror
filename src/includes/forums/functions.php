@@ -2664,15 +2664,21 @@ function bbp_get_excluded_forum_ids() {
 		? array_filter( wp_parse_id_list( array_merge( $private, $hidden ) ) )
 		: array();
 
-	// Include every descendant, even below a forum with a non-countable status
-	$parents = $forum_ids;
-	while ( ! empty( $parents ) ) {
-		$parent_id = array_shift( $parents );
+	// Include every descendant, even below a forum with a non-countable status.
+	// Large exclusion lists need batched child lookups instead of one query per
+	// forum on a cold cache.
+	if ( count( $forum_ids ) > 20 ) {
+		$forum_ids = bbp_forum_query_all_descendant_ids( $forum_ids );
+	} else {
+		$parents = $forum_ids;
+		while ( ! empty( $parents ) ) {
+			$parent_id = array_shift( $parents );
 
-		foreach ( bbp_forum_query_all_subforum_ids( $parent_id ) as $forum_id ) {
-			if ( ! in_array( $forum_id, $forum_ids, true ) ) {
-				$forum_ids[] = $forum_id;
-				$parents[]   = $forum_id;
+			foreach ( bbp_forum_query_all_subforum_ids( $parent_id ) as $forum_id ) {
+				if ( ! in_array( $forum_id, $forum_ids, true ) ) {
+					$forum_ids[] = $forum_id;
+					$parents[]   = $forum_id;
+				}
 			}
 		}
 	}
@@ -2719,6 +2725,50 @@ function bbp_forum_query_all_subforum_ids( $forum_id ) {
 	}
 
 	return wp_parse_id_list( $forum_ids );
+}
+
+/**
+ * Return a set of forum IDs and all descendants using batched child lookups.
+ *
+ * @since 2.6.20 bbPress (r7833)
+ *
+ * @param int[] $forum_ids Starting forum IDs.
+ * @return int[] Starting IDs and descendant IDs.
+ */
+function bbp_forum_query_all_descendant_ids( $forum_ids ) {
+	$forum_ids = wp_parse_id_list( $forum_ids );
+	$cache_key = 'bbp_descendant_ids:' . md5( serialize( $forum_ids ) ) . ':' . wp_cache_get_last_changed( 'bbpress_posts' );
+	$cached    = wp_cache_get( $cache_key, 'bbpress_posts' );
+
+	if ( false !== $cached ) {
+		return $cached;
+	}
+
+	$bbp_db  = bbp_db();
+	$parents = $forum_ids;
+	$seen    = array_fill_keys( $forum_ids, true );
+
+	while ( ! empty( $parents ) ) {
+		$batch = array_splice( $parents, 0, 500 );
+		$query = $bbp_db->prepare(
+			"SELECT ID FROM {$bbp_db->posts} WHERE post_parent IN (" . implode( ',', $batch ) . ') AND post_type = %s',
+			bbp_get_forum_post_type()
+		);
+
+		foreach ( (array) $bbp_db->get_col( $query ) as $forum_id ) {
+			$forum_id = (int) $forum_id;
+
+			if ( ! isset( $seen[ $forum_id ] ) ) {
+				$seen[ $forum_id ] = true;
+				$forum_ids[]       = $forum_id;
+				$parents[]         = $forum_id;
+			}
+		}
+	}
+
+	wp_cache_set( $cache_key, $forum_ids, 'bbpress_posts' );
+
+	return $forum_ids;
 }
 
 /**
