@@ -76,6 +76,111 @@ class BBP_Tests_Core_Theme_Compat extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * A root page's shortcode must run even when a bbPress post is ambient.
+	 *
+	 * @dataProvider get_root_page_content_cases
+	 *
+	 * @param string $post_type      Ambient bbPress post type.
+	 * @param string $archive_filter Archive condition to enable.
+	 */
+	public function test_root_page_content_runs_shortcodes( $post_type, $archive_filter ) {
+		$old_permalinks  = get_option( 'permalink_structure' );
+		$old_post        = isset( $GLOBALS['post'] ) ? $GLOBALS['post'] : null;
+		$old_query_post  = isset( $GLOBALS['wp_query']->post ) ? $GLOBALS['wp_query']->post : null;
+		$old_query_posts = isset( $GLOBALS['wp_query']->posts ) ? $GLOBALS['wp_query']->posts : array();
+		$root_slug       = ( bbp_get_forum_post_type() === $post_type ) ? bbp_get_root_slug() : bbp_get_topic_archive_slug();
+		$page_id         = $this->factory->post->create(
+			array(
+				'post_type'    => 'page',
+				'post_name'    => $root_slug,
+				'post_content' => '[bbp-stats] [bbp_content_probe]',
+			)
+		);
+		$ambient_id      = $this->factory->post->create( array( 'post_type' => $post_type ) );
+		$render          = function( $output ) {
+			return $output . 'root-page-bbpress-ran';
+		};
+
+		update_option( 'permalink_structure', '/%postname%/' );
+		add_filter( $archive_filter, '__return_true' );
+		add_filter( 'bbp_display_shortcode', $render );
+		add_shortcode( 'bbp_content_probe', function() {
+			return sprintf( 'root-page-shortcode-ran-%d-%d', get_the_ID(), $GLOBALS['id'] );
+		} );
+
+		try {
+			$GLOBALS['post'] = get_post( $ambient_id );
+			$GLOBALS['wp_query']->post  = $GLOBALS['post'];
+			$GLOBALS['wp_query']->posts = array( $GLOBALS['post'] );
+			$GLOBALS['wp_query']->setup_postdata( $GLOBALS['post'] );
+			$content = bbp_get_theme_compat_page_content( get_post( $page_id ) );
+
+			$this->assertSame( $ambient_id, $GLOBALS['post']->ID );
+			$this->assertSame( $ambient_id, $GLOBALS['wp_query']->post->ID );
+			$this->assertSame( $ambient_id, $GLOBALS['id'] );
+			$this->assertStringContainsString( 'root-page-bbpress-ran', $content );
+			$this->assertStringContainsString( "root-page-shortcode-ran-{$page_id}-{$page_id}", $content );
+
+			bbp_template_include_theme_compat( '/original-template.php' );
+
+			$this->assertSame( $page_id, $GLOBALS['post']->ID );
+			$this->assertStringContainsString( "root-page-shortcode-ran-{$page_id}-{$page_id}", $GLOBALS['post']->post_content );
+		} finally {
+			remove_shortcode( 'bbp_content_probe' );
+			remove_filter( 'bbp_display_shortcode', $render );
+			remove_filter( $archive_filter, '__return_true' );
+			update_option( 'permalink_structure', $old_permalinks );
+			$GLOBALS['post'] = $old_post;
+			$GLOBALS['wp_query']->post  = $old_query_post;
+			$GLOBALS['wp_query']->posts = $old_query_posts;
+		}
+	}
+
+	/**
+	 * Root page cases for forum and topic archives.
+	 *
+	 * @return array[] Root page cases.
+	 */
+	public function get_root_page_content_cases() {
+		return array(
+			'forum archive' => array( bbp_get_forum_post_type(), 'bbp_is_forum_archive' ),
+			'topic archive' => array( bbp_get_topic_post_type(), 'bbp_is_topic_archive' ),
+		);
+	}
+
+	/**
+	 * Root page filtering must restore post data when a content filter throws.
+	 */
+	public function test_root_page_content_restores_post_data_after_exception() {
+		$page_id    = $this->factory->post->create( array( 'post_type' => 'page' ) );
+		$ambient_id = $this->factory->forum->create();
+		$old_post   = isset( $GLOBALS['post'] ) ? $GLOBALS['post'] : null;
+		$old_query  = $GLOBALS['wp_query']->post;
+		$throw      = function() {
+			throw new RuntimeException( 'Stop filtering root page content.' );
+		};
+
+		$GLOBALS['post']          = get_post( $ambient_id );
+		$GLOBALS['wp_query']->post = $GLOBALS['post'];
+		$GLOBALS['wp_query']->setup_postdata( $GLOBALS['post'] );
+		add_filter( 'the_content', $throw, 1 );
+
+		try {
+			bbp_get_theme_compat_page_content( get_post( $page_id ) );
+			$this->fail( 'The content filter did not throw.' );
+		} catch ( RuntimeException $exception ) {
+			$this->assertSame( 'Stop filtering root page content.', $exception->getMessage() );
+			$this->assertSame( $ambient_id, $GLOBALS['post']->ID );
+			$this->assertSame( $ambient_id, $GLOBALS['wp_query']->post->ID );
+			$this->assertSame( $ambient_id, $GLOBALS['id'] );
+		} finally {
+			remove_filter( 'the_content', $throw, 1 );
+			$GLOBALS['post']          = $old_post;
+			$GLOBALS['wp_query']->post = $old_query;
+		}
+	}
+
+	/**
 	 * Theme compatibility template selection cases.
 	 *
 	 * @return array[] Test cases.
