@@ -1840,7 +1840,9 @@ function bbp_get_topic_subscription_link( $args = array() ) {
 
 	// Defaults
 	$retval      = false;
-	$user_id     = bbp_get_current_user_id();
+	$user_id     = bbp_is_subscriptions()
+		? bbp_get_user_id( 0, true, true )
+		: bbp_get_current_user_id();
 	$redirect_to = bbp_is_subscriptions()
 		? bbp_get_subscriptions_permalink( $user_id )
 		: '';
@@ -1892,7 +1894,9 @@ function bbp_get_topic_favorite_link( $args = array() ) {
 
 	// No link
 	$retval      = false;
-	$user_id     = bbp_get_current_user_id();
+	$user_id     = bbp_is_favorites()
+		? bbp_get_user_id( 0, true, true )
+		: bbp_get_current_user_id();
 	$redirect_to = bbp_is_favorites()
 		? bbp_get_favorites_permalink( $user_id )
 		: '';
