@@ -69,6 +69,14 @@ class BBP_REST_Posts_Controller extends WP_REST_Posts_Controller {
 	 * @return true|WP_Error True if the request has access, WP_Error otherwise.
 	 */
 	public function create_item_permissions_check( $request ) {
+		if ( in_array( $this->post_type, array( bbp_get_topic_post_type(), bbp_get_reply_post_type() ), true ) && ! bbp_current_user_can_post_in_forums() ) {
+			$message = ( bbp_get_topic_post_type() === $this->post_type )
+				? __( 'The forums are not accepting new topics.', 'bbpress' )
+				: __( 'The forums are not accepting new replies.', 'bbpress' );
+
+			return new WP_Error( 'bbp_rest_forums_closed', $message, array( 'status' => 403 ) );
+		}
+
 		$retval = parent::create_item_permissions_check( $request );
 
 		if ( is_wp_error( $retval ) || ! $retval || ! in_array( $this->post_type, array( bbp_get_topic_post_type(), bbp_get_reply_post_type() ), true ) ) {

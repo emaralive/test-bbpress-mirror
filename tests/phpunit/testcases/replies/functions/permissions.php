@@ -100,6 +100,28 @@ class BBP_Tests_Replies_Functions_Permissions extends BBP_UnitTestCase {
 		return $did_redirect;
 	}
 
+	/**
+	 * @covers ::bbp_new_reply_handler
+	 */
+	public function test_frozen_stacks_reply_errors_before_insert() {
+		$user_id  = $this->factory->user->create();
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+
+		bbp_set_user_role( $user_id, bbp_get_moderator_role() );
+		$this->set_current_user( $user_id );
+		update_option( '_bbp_forums_status', 'frozen' );
+		bbpress()->errors = new WP_Error();
+
+		$did_redirect = $this->submit_reply( $topic_id, $forum_id );
+
+		$this->assertContains( 'bbp_reply_permission', bbpress()->errors->get_error_codes() );
+		$this->assertContains( 'bbp_new_reply_forums_closed', bbpress()->errors->get_error_codes() );
+		$this->assertContains( 'bbp_reply_content', bbpress()->errors->get_error_codes() );
+		$this->assertSame( array(), $this->get_reply_ids( $topic_id ) );
+		$this->assertFalse( $did_redirect );
+	}
+
 	protected function submit_reply_edit( $reply_id, $content = '', $post_data = array() ) {
 		$home_url             = wp_parse_url( home_url( '/' ) );
 		$_SERVER['HTTP_HOST'] = $home_url['host'];
@@ -181,6 +203,34 @@ class BBP_Tests_Replies_Functions_Permissions extends BBP_UnitTestCase {
 		remove_filter( 'wp_redirect', $prevent_redirect );
 
 		return $did_redirect;
+	}
+
+	/**
+	 * @covers ::bbp_move_reply_handler
+	 */
+	public function test_keymaster_cannot_move_reply_into_new_topic_when_frozen() {
+		$user_id         = $this->factory->user->create();
+		$forum_id        = $this->factory->forum->create();
+		$source_topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$reply_id        = $this->factory->reply->create(
+			array(
+				'post_parent' => $source_topic_id,
+				'reply_meta'  => array( 'forum_id' => $forum_id, 'topic_id' => $source_topic_id ),
+			)
+		);
+
+		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
+		$this->set_current_user( $user_id );
+		update_option( '_bbp_forums_status', 'frozen' );
+		bbpress()->errors = new WP_Error();
+
+		$did_redirect = $this->submit_reply_move( $reply_id, 'topic', 0, 'New topic' );
+
+		$this->assertContains( 'bbp_move_reply_destination_permission', bbpress()->errors->get_error_codes() );
+		$this->assertSame( bbp_get_reply_post_type(), get_post_type( $reply_id ) );
+		$this->assertSame( $source_topic_id, wp_get_post_parent_id( $reply_id ) );
+		$this->assertSame( $source_topic_id, bbp_get_reply_topic_id( $reply_id ) );
+		$this->assertFalse( $did_redirect );
 	}
 
 	/**

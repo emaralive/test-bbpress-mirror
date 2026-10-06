@@ -663,6 +663,7 @@ class BBP_Admin {
 			case 'bbp_converter_options'     : // Converter - Options
 
 			// Settings Sections
+			case 'bbp_settings_status'       : // Settings - Status
 			case 'bbp_settings_users'        : // Settings - Users
 			case 'bbp_settings_features'     : // Settings - Features
 			case 'bbp_settings_theme_compat' : // Settings - Theme compat

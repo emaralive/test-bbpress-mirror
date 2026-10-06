@@ -1763,6 +1763,10 @@ class BBP_Forums_Group_Extension extends BP_Group_Extension {
 	 * @return bool
 	 */
 	public function form_permissions( $retval = false ) {
+		// Do not restore a creation form denied by the site-wide status.
+		if ( ! $retval && ! bbp_current_user_can_post_in_forums() ) {
+			return false;
+		}
 
 		// Bail if user is not logged in
 		if ( ! is_user_logged_in() ) {

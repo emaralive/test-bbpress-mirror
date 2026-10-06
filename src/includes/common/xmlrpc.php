@@ -37,6 +37,11 @@ function bbp_validate_xmlrpc_post( $method = '', $args = array() ) {
 			return;
 		}
 
+		if ( ! bbp_current_user_can_post_in_forums() ) {
+			$bbp_xmlrpc_error_post_type = $post_type;
+			return;
+		}
+
 		$title   = isset( $post_data['post_title'] ) ? wp_unslash( $post_data['post_title'] ) : '';
 		$content = isset( $post_data['post_content'] ) ? wp_unslash( $post_data['post_content'] ) : '';
 		if ( ! bbp_check_for_moderation( array(), bbp_get_current_user_id(), $title, $content, true ) ) {

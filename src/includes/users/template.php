@@ -2274,6 +2274,11 @@ function bbp_current_user_can_publish_topics() {
 		$retval = true;
 	}
 
+	// The site-wide status limits the default publishing permission.
+	if ( ! bbp_current_user_can_post_in_forums() ) {
+		$retval = false;
+	}
+
 	// Filter & return
 	return (bool) apply_filters( 'bbp_current_user_can_publish_topics', $retval );
 }
@@ -2297,6 +2302,11 @@ function bbp_current_user_can_publish_forums() {
 	// User is logged in
 	} elseif ( current_user_can( 'publish_forums' ) ) {
 		$retval = true;
+	}
+
+	// Only BuddyPress Group Forums can be created while forums are frozen.
+	if ( bbp_is_forums_status( 'frozen' ) ) {
+		$retval = false;
 	}
 
 	// Filter & return
@@ -2326,6 +2336,11 @@ function bbp_current_user_can_publish_replies() {
 	// User is logged in
 	} elseif ( current_user_can( 'publish_replies' ) ) {
 		$retval = true;
+	}
+
+	// The site-wide status limits the default publishing permission.
+	if ( ! bbp_current_user_can_post_in_forums() ) {
+		$retval = false;
 	}
 
 	// Filter & return
@@ -2400,6 +2415,11 @@ function bbp_current_user_can_access_create_forum_form() {
 		$retval = current_user_can( 'edit_forum', bbp_get_forum_id() );
 	}
 
+	// Editing an existing forum remains available to capable users.
+	if ( ! bbp_is_forum_edit() && bbp_is_forums_status( 'frozen' ) ) {
+		$retval = false;
+	}
+
 	// Filter & return
 	return (bool) apply_filters( 'bbp_current_user_can_access_create_forum_form', (bool) $retval );
 }
@@ -2427,6 +2447,11 @@ function bbp_current_user_can_access_create_topic_form() {
 	// User can edit this topic
 	} else {
 		$retval = current_user_can( 'edit_topic', bbp_get_topic_id() );
+	}
+
+	// A new topic needs the site's posting permission; editing does not.
+	if ( ! bbp_is_topic_edit() && ! bbp_current_user_can_post_in_forums() ) {
+		$retval = false;
 	}
 
 	// Filter & return
@@ -2460,6 +2485,11 @@ function bbp_current_user_can_access_create_reply_form() {
 	// User can edit this topic
 	} elseif ( bbp_get_topic_id() ) {
 		$retval = current_user_can( 'edit_topic', bbp_get_topic_id() );
+	}
+
+	// A new reply needs the site's posting permission; editing does not.
+	if ( ! bbp_is_reply_edit() && ! bbp_current_user_can_post_in_forums() ) {
+		$retval = false;
 	}
 
 	// Filter & return

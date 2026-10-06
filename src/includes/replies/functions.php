@@ -275,6 +275,11 @@ function bbp_new_reply_handler( $action = '' ) {
 		bbp_add_error( 'bbp_new_reply_topic_password', __( '<strong>Error</strong>: You must enter the topic or forum password to create new replies.', 'bbpress' ) );
 	}
 
+	// Apply the site-wide policy independently of this topic's forum status.
+	if ( ! bbp_current_user_can_post_in_forums() ) {
+		bbp_add_error( 'bbp_new_reply_forums_closed', __( '<strong>Error</strong>: The forums are not accepting new replies.', 'bbpress' ) );
+	}
+
 	/** Unfiltered HTML *******************************************************/
 
 	// Remove kses filters from title and content for capable users and if the nonce is verified

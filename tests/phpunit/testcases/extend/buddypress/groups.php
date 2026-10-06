@@ -71,6 +71,8 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 
 		if ( isset( $this->group_extension ) ) {
 			remove_filter( 'bbp_allow_read_without_spectate', array( $this->group_extension, 'allow_group_forum_read_without_role' ), 10 );
+			remove_filter( 'bbp_current_user_can_access_create_topic_form', array( $this->group_extension, 'form_permissions' ) );
+			remove_filter( 'bbp_current_user_can_access_create_reply_form', array( $this->group_extension, 'form_permissions' ) );
 			remove_filter( 'bbp_map_meta_caps', array( $this->group_extension, 'map_group_forum_meta_caps' ), 10 );
 			remove_filter( 'bbp_map_meta_caps', array( $this->group_extension, 'map_group_forum_meta_caps' ), 99 );
 			remove_filter( 'bbp_map_meta_caps', array( $this->group_extension, 'map_group_forum_read_meta_caps' ), 20 );
@@ -109,6 +111,82 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers ::bbp_user_can_post_in_forums
+	 * @covers ::bbp_user_can_edit_in_forums
+	 */
+	public function test_group_moderator_does_not_gain_site_wide_status_exception() {
+		$user_id  = $this->factory->user->create();
+		$group_id = $this->bp_factory->group->create( array( 'creator_id' => $user_id ) );
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id ) );
+
+		bbp_set_user_role( $user_id, bbp_get_participant_role() );
+		$this->attach_forum_to_group( $forum_id, $group_id );
+		buddypress()->is_single_item = true;
+		$this->set_group_context( $group_id, $user_id );
+		$this->assertTrue( current_user_can( 'moderate' ) );
+		$this->assertTrue( current_user_can( 'edit_topic', $topic_id ) );
+		$this->assertTrue( current_user_can( 'edit_reply', $reply_id ) );
+
+		update_option( '_bbp_forums_status', 'closed' );
+		$this->assertFalse( bbp_current_user_can_post_in_forums() );
+		$this->assertFalse( current_user_can( 'publish_topics' ) );
+		$this->assertFalse( current_user_can( 'publish_replies' ) );
+
+		update_option( '_bbp_forums_status', 'frozen' );
+		$this->assertFalse( bbp_user_can_edit_in_forums( $user_id ) );
+		$this->assertFalse( current_user_can( 'edit_topic', $topic_id ) );
+		$this->assertFalse( current_user_can( 'edit_reply', $reply_id ) );
+	}
+
+	/**
+	 * @covers ::BBP_Forums_Group_Extension::edit_screen_save
+	 */
+	public function test_group_admin_can_create_group_forum_while_frozen() {
+		$user_id  = $this->factory->user->create();
+		$group_id = $this->bp_factory->group->create( array( 'creator_id' => $user_id ) );
+
+		bbp_set_user_role( $user_id, bbp_get_participant_role() );
+		$this->set_group_context( $group_id, $user_id );
+		update_option( '_bbp_forums_status', 'frozen' );
+		$this->assertFalse( current_user_can( 'create_forums' ) );
+
+		$_SERVER['REQUEST_METHOD']     = 'POST';
+		$_SERVER['HTTP_HOST']          = wp_parse_url( home_url(), PHP_URL_HOST );
+		$_SERVER['SERVER_PORT']        = wp_parse_url( home_url(), PHP_URL_PORT ) ?: 80;
+		$_SERVER['REQUEST_URI']        = '/';
+		$_REQUEST['_wpnonce']          = wp_create_nonce( 'groups_edit_save_forum' );
+		$_POST['bbp-edit-group-forum'] = '1';
+		$this->assertTrue( (bool) bbp_verify_nonce_request( 'groups_edit_save_forum' ) );
+
+		$this->group_extension->edit_screen_save( $group_id );
+
+		$forum_ids = bbp_get_group_forum_ids( $group_id );
+		$this->assertCount( 1, $forum_ids );
+		$this->assertTrue( bbp_is_forum( $forum_ids[0] ) );
+		$this->assertSame( array( $group_id ), bbp_get_forum_group_ids( $forum_ids[0] ) );
+	}
+
+	/**
+	 * @covers ::BBP_Forums_Group_Extension::form_permissions
+	 */
+	public function test_frozen_group_forum_hides_keymaster_creation_forms() {
+		$user_id  = $this->factory->user->create();
+		$group_id = $this->bp_factory->group->create( array( 'creator_id' => $user_id ) );
+		$forum_id = $this->factory->forum->create();
+
+		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
+		$this->attach_forum_to_group( $forum_id, $group_id );
+		buddypress()->is_single_item = true;
+		$this->set_group_context( $group_id, $user_id );
+		update_option( '_bbp_forums_status', 'frozen' );
+
+		$this->assertFalse( bbp_current_user_can_access_create_topic_form() );
+		$this->assertFalse( bbp_current_user_can_access_create_reply_form() );
+	}
+
+	/**
 	 * @covers ::BBP_Forums_Group_Extension::edit_screen_save
 	 */
 	public function test_group_forum_save_discards_missing_forum_ids() {
@@ -124,6 +202,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 
 		$_SERVER['REQUEST_METHOD']     = 'POST';
 		$_SERVER['HTTP_HOST']          = wp_parse_url( home_url(), PHP_URL_HOST );
+		$_SERVER['SERVER_PORT']        = wp_parse_url( home_url(), PHP_URL_PORT ) ?: 80;
 		$_SERVER['REQUEST_URI']        = '/';
 		$_REQUEST['_wpnonce']          = wp_create_nonce( 'groups_edit_save_forum' );
 		$_POST['bbp-edit-group-forum'] = '1';
@@ -148,6 +227,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 
 		$_SERVER['REQUEST_METHOD']     = 'POST';
 		$_SERVER['HTTP_HOST']          = wp_parse_url( home_url(), PHP_URL_HOST );
+		$_SERVER['SERVER_PORT']        = wp_parse_url( home_url(), PHP_URL_PORT ) ?: 80;
 		$_SERVER['REQUEST_URI']        = '/';
 		$_REQUEST['_wpnonce']          = wp_create_nonce( 'groups_edit_save_forum' );
 		$_POST['bbp-edit-group-forum'] = '1';
@@ -943,6 +1023,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 		$this->attach_forum_to_group( $forum_id, $group_id );
 		bbp_add_moderator( $forum_id, $moderator_id );
 		bbp_update_group_forum_ids( $group_id, array( $forum_id, $post_id ) );
+		buddypress()->is_single_item = true;
 		$this->set_group_context( $group_id, $user_id );
 
 		$this->assertTrue( bbp_group_is_admin() );
