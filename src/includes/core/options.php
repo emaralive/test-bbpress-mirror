@@ -328,7 +328,7 @@ function bbp_pre_load_options() {
 /**
  * Return the available site-wide forum statuses.
  *
- * @since 2.7.0 bbPress (r7851)
+ * @since 2.6.20 bbPress (r7851)
  *
  * @return array Status labels keyed by status ID.
  */
@@ -345,7 +345,7 @@ function bbp_get_forums_statuses() {
 /**
  * Get the site-wide forums status.
  *
- * @since 2.7.0 bbPress (r7851)
+ * @since 2.6.20 bbPress (r7851)
  *
  * @return string Valid status key, or open when the saved value is invalid.
  */
@@ -361,7 +361,7 @@ function bbp_get_forums_status() {
 /**
  * Check the site-wide forums status.
  *
- * @since 2.7.0 bbPress (r7851)
+ * @since 2.6.20 bbPress (r7851)
  *
  * @param string $status Status to check.
  * @return bool Whether the current status matches.
@@ -376,7 +376,7 @@ function bbp_is_forums_status( $status ) {
  * Read the assigned capability directly so scoped BuddyPress and forum
  * moderation cannot grant a site-wide exception.
  *
- * @since 2.7.0 bbPress (r7851)
+ * @since 2.6.20 bbPress (r7851)
  *
  * @param int $user_id User ID.
  * @return bool Whether the user has a site-wide moderation role or capability.
@@ -392,7 +392,7 @@ function bbp_user_is_keymaster_or_moderator( $user_id ) {
  *
  * This policy supplements the existing post-type and per-forum permissions.
  *
- * @since 2.7.0 bbPress (r7851)
+ * @since 2.6.20 bbPress (r7851)
  *
  * @param int $user_id User ID.
  * @return bool Whether the site-wide status allows posting in all forums.
@@ -412,7 +412,7 @@ function bbp_user_can_post_in_forums( $user_id ) {
 /**
  * Check whether the site-wide status allows the current user to post anywhere.
  *
- * @since 2.7.0 bbPress (r7851)
+ * @since 2.6.20 bbPress (r7851)
  *
  * @return bool Whether the site-wide status allows posting in all forums.
  */
@@ -423,7 +423,7 @@ function bbp_current_user_can_post_in_forums() {
 /**
  * Check whether the site-wide status permits a user to edit forums, topics, and replies.
  *
- * @since 2.7.0 bbPress (r7851)
+ * @since 2.6.20 bbPress (r7851)
  *
  * @param int $user_id User ID.
  * @return bool Whether the site-wide status permits the user to edit.

@@ -654,7 +654,7 @@ function bbp_admin_sanitize_default_role( $role ) {
 /**
  * Keep the site-wide forums status within its supported values.
  *
- * @since 2.7.0 bbPress (r7851)
+ * @since 2.6.20 bbPress (r7851)
  *
  * @param mixed $status Submitted status.
  * @return string Valid forums status.
@@ -730,7 +730,7 @@ function bbp_admin_get_settings_fields_for_section( $section_id = '' ) {
 /**
  * Site-wide forums status section description.
  *
- * @since 2.7.0 bbPress (r7851)
+ * @since 2.6.20 bbPress (r7851)
  */
 function bbp_admin_setting_callback_status_section() {
 	?>
@@ -741,7 +741,7 @@ function bbp_admin_setting_callback_status_section() {
 /**
  * Site-wide forums status setting.
  *
- * @since 2.7.0 bbPress (r7851)
+ * @since 2.6.20 bbPress (r7851)
  */
 function bbp_admin_setting_callback_forums_status() {
 	$status = bbp_get_forums_status();
