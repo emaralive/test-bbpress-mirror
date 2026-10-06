@@ -1408,10 +1408,11 @@ function bbp_get_user_subscribe_link( $args = array(), $user_id = 0, $wrap = tru
 		$q_args['redirect_to'] = urlencode( $r['redirect_to'] );
 	}
 
-	// URL
-	$url  = esc_url( wp_nonce_url( add_query_arg( $q_args ), 'toggle-subscription_post_' . $object_id ) );
+	// URL using the original nonce action for third-party theme package handlers.
+	$nonce_action = 'toggle-subscription_' . $object_id;
+	$url  = esc_url( wp_nonce_url( add_query_arg( $q_args ), $nonce_action ) );
 	$sub  = $is_subscribed ? ' class="is-subscribed"' : '';
-	$html = sprintf( '%s<span id="subscribe-%d"  %s><a href="%s" class="subscription-toggle" data-bbp-object-id="%d" data-bbp-object-type="%s" data-bbp-nonce="%s">%s</a></span>%s', $r['before'], $object_id, $sub, $url, $object_id, $object_type, wp_create_nonce( 'toggle-subscription_post_' . $object_id ), $text, $r['after'] );
+	$html = sprintf( '%s<span id="subscribe-%d"  %s><a href="%s" class="subscription-toggle" data-bbp-object-id="%d" data-bbp-object-type="%s" data-bbp-nonce="%s">%s</a></span>%s', $r['before'], $object_id, $sub, $url, $object_id, $object_type, wp_create_nonce( $nonce_action ), $text, $r['after'] );
 
 	// Initial output is wrapped in a span, ajax output is hooked to this
 	if ( ! empty( $wrap ) ) {
