@@ -35,6 +35,77 @@ class BBP_Tests_Admin_Attributes_Security extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers ::bbp_map_topic_meta_caps
+	 * @covers ::bbp_map_reply_meta_caps
+	 */
+	public function test_closed_forums_block_admin_first_save_of_auto_drafts() {
+		require_once ABSPATH . 'wp-admin/includes/post.php';
+
+		$user_id = $this->factory->user->create();
+		bbp_set_user_role( $user_id, bbp_get_participant_role() );
+		$this->set_current_user( $user_id );
+
+		foreach ( array( bbp_get_topic_post_type(), bbp_get_reply_post_type() ) as $post_type ) {
+			$post_id = $this->factory->post->create( array( 'post_type' => $post_type, 'post_status' => 'auto-draft', 'post_author' => $user_id ) );
+
+			update_option( '_bbp_forums_status', 'closed' );
+			try {
+				edit_post( array( 'post_ID' => $post_id, 'post_status' => 'publish', 'post_title' => 'First save' ) );
+				$this->fail( 'The auto-draft should not become forum content.' );
+			} catch ( WPDieException $error ) {
+				$this->assertSame( 'auto-draft', get_post_status( $post_id ) );
+			} finally {
+				update_option( '_bbp_forums_status', 'open' );
+			}
+		}
+	}
+
+	/**
+	 * @covers ::bbp_map_forum_meta_caps
+	 */
+	public function test_frozen_forums_block_admin_first_save_of_forum_auto_draft() {
+		require_once ABSPATH . 'wp-admin/includes/post.php';
+
+		$user_id = $this->factory->user->create();
+		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
+		$this->set_current_user( $user_id );
+		$post_id = $this->factory->post->create( array( 'post_type' => bbp_get_forum_post_type(), 'post_status' => 'auto-draft', 'post_author' => $user_id ) );
+
+		update_option( '_bbp_forums_status', 'frozen' );
+		$this->assertFalse( current_user_can( 'edit_forum', $post_id ) );
+
+		try {
+			edit_post( array( 'post_ID' => $post_id, 'post_status' => 'publish', 'post_title' => 'New forum' ) );
+			$this->fail( 'The forum auto-draft should not become a forum.' );
+		} catch ( WPDieException $error ) {
+			$this->assertSame( 'auto-draft', get_post_status( $post_id ) );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_map_forum_meta_caps
+	 * @covers ::bbp_map_topic_meta_caps
+	 * @covers ::bbp_map_reply_meta_caps
+	 */
+	public function test_frozen_forums_allow_moderator_admin_edits_to_published_content() {
+		require_once ABSPATH . 'wp-admin/includes/post.php';
+
+		$user_id  = $this->factory->user->create();
+		$forum_id = $this->factory->forum->create( array( 'post_author' => $user_id ) );
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id, 'post_author' => $user_id ) );
+		$reply_id = $this->factory->reply->create( array( 'post_parent' => $topic_id, 'post_author' => $user_id ) );
+
+		bbp_set_user_role( $user_id, bbp_get_moderator_role() );
+		$this->set_current_user( $user_id );
+		update_option( '_bbp_forums_status', 'frozen' );
+
+		foreach ( array( $forum_id, $topic_id, $reply_id ) as $post_id ) {
+			$this->assertSame( $post_id, edit_post( array( 'post_ID' => $post_id, 'post_status' => 'publish', 'post_title' => 'Updated title' ) ) );
+			$this->assertSame( 'Updated title', get_the_title( $post_id ) );
+		}
+	}
+
+	/**
 	 * @covers BBP_Topics_Admin::toggle_topic
 	 * @covers BBP_Topics_Admin::row_actions
 	 */

@@ -1206,4 +1206,32 @@ class BBP_Tests_Common_REST extends BBP_UnitTestCase {
 		$response = $this->dispatch_request( 'POST', '/wp/v2/' . bbp_get_topic_post_type(), $user_id, array( 'title' => 'REST topic', 'content' => 'Clean moderator topic.' ) );
 		$this->assertSame( 201, $response->get_status() );
 	}
+
+	/**
+	 * Frozen forums return a clear REST permission error for new content.
+	 *
+	 * @covers BBP_REST_Posts_Controller::create_item_permissions_check
+	 */
+	public function test_frozen_blocks_moderator_topic_creation_through_rest() {
+		$user_id = $this->factory->user->create();
+		bbp_set_user_role( $user_id, bbp_get_moderator_role() );
+		$forum_id = $this->factory->forum->create();
+		update_option( '_bbp_forums_status', 'frozen' );
+
+		$response = $this->dispatch_request( 'POST', '/wp/v2/' . bbp_get_topic_post_type(), $user_id, array( 'parent' => $forum_id, 'title' => 'Frozen topic', 'content' => 'Cannot post.' ) );
+		$this->assertSame( 403, $response->get_status() );
+		$this->assertSame( 'bbp_rest_forums_closed', $response->get_data()['code'] );
+	}
+
+	/**
+	 * @covers BBP_REST_Posts_Controller::create_item_permissions_check
+	 */
+	public function test_frozen_blocks_moderator_forum_creation_through_rest() {
+		$user_id = $this->factory->user->create();
+		bbp_set_user_role( $user_id, bbp_get_moderator_role() );
+		update_option( '_bbp_forums_status', 'frozen' );
+
+		$response = $this->dispatch_request( 'POST', '/wp/v2/' . bbp_get_forum_post_type(), $user_id, array( 'title' => 'Ordinary forum' ) );
+		$this->assertSame( 403, $response->get_status() );
+	}
 }

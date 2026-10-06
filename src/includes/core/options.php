@@ -58,6 +58,7 @@ function bbp_get_default_options() {
 
 			/** Settings **********************************************************/
 
+			'_bbp_forums_status'          => 'open',    // Site-wide forum content status
 			'_bbp_default_role'           => $role,     // Default forums role
 			'_bbp_edit_lock'              => 5,         // Lock post editing after 5 minutes
 			'_bbp_throttle_time'          => 10,        // Throttle post time to 10 seconds
@@ -321,6 +322,121 @@ function bbp_pre_load_options() {
 }
 
 /** Active? *******************************************************************/
+
+/** Forum Status **************************************************************/
+
+/**
+ * Return the available site-wide forum statuses.
+ *
+ * @since 2.7.0 bbPress (r7851)
+ *
+ * @return array Status labels keyed by status ID.
+ */
+function bbp_get_forums_statuses() {
+	$statuses = array(
+		'open'   => _x( 'Open',   'Site-wide forum status', 'bbpress' ),
+		'closed' => _x( 'Closed', 'Site-wide forum status', 'bbpress' ),
+		'frozen' => _x( 'Frozen', 'Site-wide forum status', 'bbpress' )
+	);
+
+	return (array) apply_filters( 'bbp_get_forums_statuses', $statuses );
+}
+
+/**
+ * Get the site-wide forums status.
+ *
+ * @since 2.7.0 bbPress (r7851)
+ *
+ * @return string Valid status key, or open when the saved value is invalid.
+ */
+function bbp_get_forums_status() {
+	$status   = get_option( '_bbp_forums_status', 'open' );
+	$statuses = bbp_get_forums_statuses();
+
+	return is_string( $status ) && isset( $statuses[ $status ] )
+		? $status
+		: 'open';
+}
+
+/**
+ * Check the site-wide forums status.
+ *
+ * @since 2.7.0 bbPress (r7851)
+ *
+ * @param string $status Status to check.
+ * @return bool Whether the current status matches.
+ */
+function bbp_is_forums_status( $status ) {
+	return is_string( $status ) && ( bbp_get_forums_status() === $status );
+}
+
+/**
+ * Check whether a user is a Keymaster or site-wide Moderator.
+ *
+ * Read the assigned capability directly so scoped BuddyPress and forum
+ * moderation cannot grant a site-wide exception.
+ *
+ * @since 2.7.0 bbPress (r7851)
+ *
+ * @param int $user_id User ID.
+ * @return bool Whether the user has a site-wide moderation role or capability.
+ */
+function bbp_user_is_keymaster_or_moderator( $user_id ) {
+	$user = get_userdata( (int) $user_id );
+
+	return $user && ( bbp_is_user_keymaster( $user->ID ) || ! empty( $user->allcaps['moderate'] ) );
+}
+
+/**
+ * Check whether the site-wide status allows a user to post anywhere.
+ *
+ * This policy supplements the existing post-type and per-forum permissions.
+ *
+ * @since 2.7.0 bbPress (r7851)
+ *
+ * @param int $user_id User ID.
+ * @return bool Whether the site-wide status allows posting in all forums.
+ */
+function bbp_user_can_post_in_forums( $user_id ) {
+	if ( bbp_is_forums_status( 'open' ) ) {
+		$retval = true;
+	} elseif ( bbp_is_forums_status( 'frozen' ) ) {
+		$retval = false;
+	} else {
+		$retval = bbp_user_is_keymaster_or_moderator( $user_id );
+	}
+
+	return (bool) apply_filters( 'bbp_user_can_post_in_forums', $retval, $user_id, bbp_get_forums_status() );
+}
+
+/**
+ * Check whether the site-wide status allows the current user to post anywhere.
+ *
+ * @since 2.7.0 bbPress (r7851)
+ *
+ * @return bool Whether the site-wide status allows posting in all forums.
+ */
+function bbp_current_user_can_post_in_forums() {
+	return bbp_user_can_post_in_forums( get_current_user_id() );
+}
+
+/**
+ * Check whether the site-wide status permits a user to edit forums, topics, and replies.
+ *
+ * @since 2.7.0 bbPress (r7851)
+ *
+ * @param int $user_id User ID.
+ * @return bool Whether the site-wide status permits the user to edit.
+ */
+function bbp_user_can_edit_in_forums( $user_id ) {
+	if ( ! bbp_is_forums_status( 'frozen' ) ) {
+		$retval = true;
+	} else {
+		$retval = bbp_user_is_keymaster_or_moderator( $user_id );
+	}
+
+	return (bool) apply_filters( 'bbp_user_can_edit_in_forums', $retval, $user_id, bbp_get_forums_status() );
+}
 
 /**
  * Checks if favorites feature is enabled.

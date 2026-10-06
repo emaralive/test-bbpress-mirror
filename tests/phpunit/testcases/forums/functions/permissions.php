@@ -32,6 +32,43 @@ class BBP_Tests_Forums_Functions_Permissions extends BBP_UnitTestCase {
 		parent::tearDown();
 	}
 
+	/**
+	 * @covers ::bbp_new_forum_handler
+	 */
+	public function test_frozen_blocks_keymaster_front_end_forum_creation() {
+		$user_id  = $this->factory->user->create();
+		$parent_id = $this->factory->forum->create();
+		$home_url = wp_parse_url( home_url( '/' ) );
+		$inserted = false;
+		$track_insert = function() use ( &$inserted ) {
+			$inserted = true;
+		};
+
+		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
+		$this->set_current_user( $user_id );
+		update_option( '_bbp_forums_status', 'frozen' );
+		bbpress()->errors = new WP_Error();
+		$_SERVER['HTTP_HOST'] = $home_url['host'];
+		if ( isset( $home_url['port'] ) ) {
+			$_SERVER['HTTP_HOST'] .= ':' . $home_url['port'];
+		}
+		$_SERVER['REQUEST_URI']       = $home_url['path'];
+		$_REQUEST['_wpnonce']         = wp_create_nonce( 'bbp-new-forum' );
+		$_POST['bbp_forum_parent_id'] = $parent_id;
+		$_POST['bbp_forum_title']     = 'Ordinary forum';
+		$_POST['bbp_forum_content']   = 'A forum description.';
+		add_filter( 'bbp_new_forum_pre_insert', $track_insert );
+
+		try {
+			bbp_new_forum_handler( 'bbp-new-forum' );
+		} finally {
+			remove_filter( 'bbp_new_forum_pre_insert', $track_insert );
+		}
+
+		$this->assertContains( 'bbp_new_forum_forums_frozen', bbpress()->errors->get_error_codes() );
+		$this->assertFalse( $inserted );
+	}
+
 	protected function submit_forum_edit( $forum_id, $parent_id ) {
 		$home_url             = wp_parse_url( home_url( '/' ) );
 		$_SERVER['HTTP_HOST'] = $home_url['host'];

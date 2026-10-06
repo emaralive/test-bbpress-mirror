@@ -448,6 +448,50 @@ class BBP_Tests_Common_XMLRPC extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * The site-wide status also applies to XML-RPC topic creation.
+	 *
+	 * @covers ::bbp_validate_xmlrpc_post
+	 */
+	public function test_closed_blocks_author_participant_topic_creation() {
+		$user_id  = $this->create_author_participant();
+		$forum_id = $this->factory->forum->create();
+		update_option( '_bbp_forums_status', 'closed' );
+
+		$result = $this->new_post(
+			array(
+				'post_author'  => $user_id,
+				'post_parent'  => $forum_id,
+				'post_status'  => bbp_get_public_status_id(),
+				'post_type'    => bbp_get_topic_post_type(),
+				'post_title'   => 'Closed XML-RPC topic',
+				'post_content' => 'Cannot post while closed.',
+			)
+		);
+
+		$this->assertInstanceOf( 'IXR_Error', $result );
+		$this->assertSame( bbp_get_topic_post_type(), $GLOBALS['bbp_xmlrpc_error_post_type'] );
+	}
+
+	/**
+	 * @covers ::bbp_map_forum_meta_caps
+	 */
+	public function test_frozen_blocks_keymaster_forum_creation() {
+		$this->create_keymaster();
+		update_option( '_bbp_forums_status', 'frozen' );
+
+		$result = $this->new_post(
+			array(
+				'post_status'  => bbp_get_public_status_id(),
+				'post_type'    => bbp_get_forum_post_type(),
+				'post_title'   => 'Ordinary forum',
+				'post_content' => 'Cannot create while frozen.',
+			)
+		);
+
+		$this->assertInstanceOf( 'IXR_Error', $result );
+	}
+
+	/**
 	 * @covers ::bbp_validate_xmlrpc_post
 	 */
 	public function test_moderator_create_obeys_strict_block_list() {

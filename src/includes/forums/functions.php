@@ -150,7 +150,6 @@ function bbp_new_forum_handler( $action = '' ) {
 	// User cannot create forums
 	if ( ! current_user_can( 'publish_forums' ) ) {
 		bbp_add_error( 'bbp_forum_permission', __( '<strong>Error</strong>: You do not have permission to create new forums.', 'bbpress' ) );
-		return;
 	}
 
 	// Forum author is current user
@@ -226,6 +225,11 @@ function bbp_new_forum_handler( $action = '' ) {
 		if ( ! current_user_can( 'read_forum', $forum_parent_id ) ) {
 			bbp_add_error( 'bbp_new_forum_forum_read', __( '<strong>Error</strong>: You do not have the capability to create new forums in this forum.', 'bbpress' ) );
 		}
+	}
+
+	// Only BuddyPress Group Forums can be created while forums are frozen.
+	if ( bbp_is_forums_status( 'frozen' ) ) {
+		bbp_add_error( 'bbp_new_forum_forums_frozen', __( '<strong>Error</strong>: New forums cannot be created at this time.', 'bbpress' ) );
 	}
 
 	/** Forum Flooding ********************************************************/

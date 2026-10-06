@@ -22,6 +22,7 @@ function bbp_get_forum_caps() {
 	return (array) apply_filters(
 		'bbp_get_forum_caps',
 		array(
+			'create_posts'        => 'create_forums',
 			'edit_posts'          => 'edit_forums',
 			'edit_others_posts'   => 'edit_others_forums',
 			'publish_posts'       => 'publish_forums',
@@ -48,6 +49,11 @@ function bbp_map_forum_meta_caps( $caps = array(), $cap = '', $user_id = 0, $arg
 
 	// What capability is being checked?
 	switch ( $cap ) {
+		case 'create_forums' :
+			$caps = bbp_is_forums_status( 'frozen' )
+				? array( 'do_not_allow' )
+				: map_meta_cap( 'edit_forums', $user_id );
+			break;
 
 		/** Reading ***********************************************************/
 
@@ -140,6 +146,8 @@ function bbp_map_forum_meta_caps( $caps = array(), $cap = '', $user_id = 0, $arg
 		/** Publishing ********************************************************/
 
 		case 'publish_forums' :
+			// Keep this capability for existing forums and BuddyPress group-root setup.
+			// Ordinary new forums are checked through create_forums and the form handler.
 
 			// Moderators can always edit
 			if ( user_can( $user_id, 'moderate' ) ) {
@@ -197,8 +205,16 @@ function bbp_map_forum_meta_caps( $caps = array(), $cap = '', $user_id = 0, $arg
 				// Get caps for post type object
 				$post_type = get_post_type_object( $_post->post_type );
 
+				// An auto-draft's first save creates a forum.
+				if ( 'auto-draft' === $_post->post_status && bbp_is_forums_status( 'frozen' ) ) {
+					$caps = array( 'do_not_allow' );
+
+				// Frozen forums permit edits only by Keymasters and Moderators.
+				} elseif ( ! bbp_user_can_edit_in_forums( $user_id ) ) {
+					$caps = array( 'do_not_allow' );
+
 				// Add 'do_not_allow' cap if user is spam or deleted
-				if ( bbp_is_user_inactive( $user_id ) ) {
+				} elseif ( bbp_is_user_inactive( $user_id ) ) {
 					$caps = array( 'do_not_allow' );
 
 				// Moderators can always read forum content

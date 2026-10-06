@@ -140,7 +140,6 @@ function bbp_new_topic_handler( $action = '' ) {
 		// User cannot create topics
 		if ( ! current_user_can( 'publish_topics' ) ) {
 			bbp_add_error( 'bbp_topic_permission', __( '<strong>Error</strong>: You do not have permission to create new topics.', 'bbpress' ) );
-			return;
 		}
 
 		// Topic author is current user
@@ -254,6 +253,11 @@ function bbp_new_topic_handler( $action = '' ) {
 				bbp_add_error( 'bbp_new_topic_forum_password', __( '<strong>Error</strong>: You must enter the forum password to create new topics.', 'bbpress' ) );
 			}
 		}
+	}
+
+	// Apply the site-wide policy even when this topic has no forum.
+	if ( ! bbp_current_user_can_post_in_forums() ) {
+		bbp_add_error( 'bbp_new_topic_forums_closed', __( '<strong>Error</strong>: The forums are not accepting new topics.', 'bbpress' ) );
 	}
 
 	/** Topic Flooding ********************************************************/

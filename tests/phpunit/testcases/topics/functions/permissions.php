@@ -35,6 +35,45 @@ class BBP_Tests_Topics_Functions_Permissions extends BBP_UnitTestCase {
 		parent::tearDown();
 	}
 
+	/**
+	 * @covers ::bbp_new_topic_handler
+	 */
+	public function test_closed_stacks_topic_errors_before_insert() {
+		$user_id  = $this->factory->user->create();
+		$forum_id = $this->factory->forum->create();
+		$home_url = wp_parse_url( home_url( '/' ) );
+		$inserted = false;
+		$track_insert = function() use ( &$inserted ) {
+			$inserted = true;
+		};
+
+		bbp_set_user_role( $user_id, bbp_get_participant_role() );
+		$this->set_current_user( $user_id );
+		update_option( '_bbp_forums_status', 'closed' );
+		bbpress()->errors = new WP_Error();
+		$_SERVER['HTTP_HOST'] = $home_url['host'];
+		if ( isset( $home_url['port'] ) ) {
+			$_SERVER['HTTP_HOST'] .= ':' . $home_url['port'];
+		}
+		$_SERVER['REQUEST_URI'] = $home_url['path'];
+		$_REQUEST['_wpnonce']   = wp_create_nonce( 'bbp-new-topic' );
+		$_POST['bbp_forum_id']  = $forum_id;
+		add_filter( 'bbp_new_topic_pre_insert', $track_insert );
+		$this->assertFalse( current_user_can( 'publish_topics' ) );
+
+		try {
+			bbp_new_topic_handler( 'bbp-new-topic' );
+		} finally {
+			remove_filter( 'bbp_new_topic_pre_insert', $track_insert );
+		}
+
+		$this->assertContains( 'bbp_topic_permission', bbpress()->errors->get_error_codes(), implode( ', ', bbpress()->errors->get_error_codes() ) );
+		$this->assertContains( 'bbp_new_topic_forums_closed', bbpress()->errors->get_error_codes() );
+		$this->assertContains( 'bbp_topic_title', bbpress()->errors->get_error_codes() );
+		$this->assertContains( 'bbp_topic_content', bbpress()->errors->get_error_codes() );
+		$this->assertFalse( $inserted );
+	}
+
 	protected function submit_topic_split( $reply_id, $source_topic_id, $split_option, $destination_title = null ) {
 		$home_url             = wp_parse_url( home_url( '/' ) );
 		$_SERVER['HTTP_HOST'] = $home_url['host'];
@@ -237,6 +276,29 @@ class BBP_Tests_Topics_Functions_Permissions extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_merge_topic_handler
 	 */
+	public function test_keymaster_can_merge_existing_topics_when_frozen() {
+		$user_id              = $this->factory->user->create();
+		$forum_id             = $this->factory->forum->create();
+		$source_topic_id      = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$destination_topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+
+		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
+		$this->set_current_user( $user_id );
+		update_option( '_bbp_forums_status', 'frozen' );
+		bbpress()->errors = new WP_Error();
+
+		$did_redirect = $this->submit_topic_merge( $source_topic_id, $destination_topic_id );
+
+		$this->assertSame( array(), bbpress()->errors->get_error_codes() );
+		$this->assertSame( bbp_get_reply_post_type(), get_post_type( $source_topic_id ) );
+		$this->assertSame( $destination_topic_id, wp_get_post_parent_id( $source_topic_id ) );
+		$this->assertSame( $destination_topic_id, bbp_get_reply_topic_id( $source_topic_id ) );
+		$this->assertTrue( $did_redirect );
+	}
+
+	/**
+	 * @covers ::bbp_merge_topic_handler
+	 */
 	public function test_missing_merge_topics_collect_both_errors() {
 		$user_id = $this->factory->user->create();
 
@@ -397,6 +459,34 @@ class BBP_Tests_Topics_Functions_Permissions extends BBP_UnitTestCase {
 		$this->assertSame( $forum_id, wp_get_post_parent_id( $reply_id ) );
 		$this->assertSame( $reply_id, (int) get_post_meta( $reply_id, '_bbp_topic_id', true ) );
 		$this->assertTrue( $did_redirect );
+	}
+
+	/**
+	 * @covers ::bbp_split_topic_handler
+	 */
+	public function test_keymaster_cannot_split_reply_into_new_topic_when_frozen() {
+		$user_id         = $this->factory->user->create();
+		$forum_id        = $this->factory->forum->create();
+		$source_topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$reply_id        = $this->factory->reply->create(
+			array(
+				'post_parent' => $source_topic_id,
+				'reply_meta'  => array( 'forum_id' => $forum_id, 'topic_id' => $source_topic_id ),
+			)
+		);
+
+		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
+		$this->set_current_user( $user_id );
+		update_option( '_bbp_forums_status', 'frozen' );
+		bbpress()->errors = new WP_Error();
+
+		$did_redirect = $this->submit_topic_split( $reply_id, $source_topic_id, 'reply', 'New topic' );
+
+		$this->assertContains( 'bbp_split_topic_destination_permission', bbpress()->errors->get_error_codes() );
+		$this->assertSame( bbp_get_reply_post_type(), get_post_type( $reply_id ) );
+		$this->assertSame( $source_topic_id, wp_get_post_parent_id( $reply_id ) );
+		$this->assertSame( $source_topic_id, bbp_get_reply_topic_id( $reply_id ) );
+		$this->assertFalse( $did_redirect );
 	}
 
 	/**

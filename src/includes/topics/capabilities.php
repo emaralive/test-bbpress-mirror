@@ -22,6 +22,7 @@ function bbp_get_topic_caps() {
 	return (array) apply_filters(
 		'bbp_get_topic_caps',
 		array(
+			'create_posts'        => 'create_topics',
 			'edit_posts'          => 'edit_topics',
 			'edit_others_posts'   => 'edit_others_topics',
 			'publish_posts'       => 'publish_topics',
@@ -70,6 +71,11 @@ function bbp_map_topic_meta_caps( $caps = array(), $cap = '', $user_id = 0, $arg
 
 	// What capability is being checked?
 	switch ( $cap ) {
+		case 'create_topics' :
+			$caps = bbp_user_can_post_in_forums( $user_id )
+				? map_meta_cap( 'edit_topics', $user_id )
+				: array( 'do_not_allow' );
+			break;
 
 		/** Reading ***********************************************************/
 
@@ -131,6 +137,10 @@ function bbp_map_topic_meta_caps( $caps = array(), $cap = '', $user_id = 0, $arg
 		/** Publishing ********************************************************/
 
 		case 'publish_topics'  :
+			if ( ! bbp_user_can_post_in_forums( $user_id ) ) {
+				$caps = array( 'do_not_allow' );
+				break;
+			}
 
 			// Moderators can always publish
 			if ( user_can( $user_id, 'moderate' ) ) {
@@ -181,8 +191,16 @@ function bbp_map_topic_meta_caps( $caps = array(), $cap = '', $user_id = 0, $arg
 				$post_type = get_post_type_object( $_post->post_type );
 				$forum_id  = bbp_get_topic_forum_id( $_post->ID );
 
+				// An auto-draft's first save creates a topic.
+				if ( 'auto-draft' === $_post->post_status && ! bbp_user_can_post_in_forums( $user_id ) ) {
+					$caps = array( 'do_not_allow' );
+
+				// Frozen forums permit edits only by Keymasters and Moderators.
+				} elseif ( ! bbp_user_can_edit_in_forums( $user_id ) ) {
+					$caps = array( 'do_not_allow' );
+
 				// Anonymous users cannot edit existing topics
-				if ( empty( $user_id ) ) {
+				} elseif ( empty( $user_id ) ) {
 					$caps = array( 'do_not_allow' );
 
 				// Add 'do_not_allow' cap if user is spam or deleted
