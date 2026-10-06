@@ -36,7 +36,14 @@ class BBP_Forums_Group_Extension extends BP_Group_Extension {
 		$this->setup_variables();
 		$this->setup_actions();
 		$this->setup_filters();
-		$this->maybe_unset_forum_menu();
+
+		// BuddyPress rewrites resolve the current group after initialization.
+		if ( function_exists( 'bp_core_get_query_parser' ) && ( 'rewrites' === bp_core_get_query_parser() ) && ! bp_is_group() ) {
+			add_action( 'bp_parse_query', array( $this, 'maybe_unset_forum_menu' ), 11 );
+		} else {
+			$this->maybe_unset_forum_menu();
+		}
+
 		$this->fully_loaded();
 	}
 
@@ -148,7 +155,7 @@ class BBP_Forums_Group_Extension extends BP_Group_Extension {
 
 		// BuddyPress rewrites resolve the group during query parsing.
 		if ( function_exists( 'bp_core_get_query_parser' ) && ( 'rewrites' === bp_core_get_query_parser() ) && ! ( bp_is_single_item() && bp_is_group() && bp_is_current_action( $this->slug ) ) ) {
-			add_action( 'bp_parse_query', array( $this, 'on_group_forum_page' ), 20 );
+			add_action( 'bp_parse_query', array( $this, 'on_group_forum_page' ), 11 );
 		} else {
 			$this->on_group_forum_page();
 		}
