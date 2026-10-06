@@ -45,6 +45,8 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Restored the original subscription link nonce so AJAX handlers in third-party
+  theme packages accept subscription toggles.
 - Corrected reply position classes and repeated position lookups when replies
   are rendered outside their topic.
 - Sent accurate author post counts to Akismet when members have at least 1,000

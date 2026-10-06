@@ -152,22 +152,28 @@ class BBP_Tests_Users_Functions_Engagement_Permissions extends BBP_UnitTestCase 
 	/**
 	 * @covers ::bbp_get_user_subscribe_link
 	 */
-	public function test_subscription_link_uses_post_scoped_nonce() {
+	public function test_subscription_link_uses_established_nonce_for_theme_package_compatibility() {
 		$user_id  = $this->factory->user->create( array( 'role' => bbp_get_participant_role() ) );
 		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id, 'topic_meta' => array( 'forum_id' => $forum_id ) ) );
 
 		$this->set_current_user( $user_id );
-		$link = bbp_get_user_subscribe_link( array( 'object_id' => $forum_id ) );
 
-		$this->assertStringContainsString( 'data-bbp-object-type="post"', $link );
-		$this->assertStringContainsString( 'data-bbp-nonce="' . wp_create_nonce( 'toggle-subscription_post_' . $forum_id ) . '"', $link );
+		foreach ( array( $forum_id, $topic_id ) as $object_id ) {
+			$nonce = wp_create_nonce( 'toggle-subscription_' . $object_id );
+			$link  = bbp_get_user_subscribe_link( array( 'object_id' => $object_id ) );
+
+			$this->assertStringContainsString( 'data-bbp-object-type="post"', $link );
+			$this->assertStringContainsString( 'data-bbp-nonce="' . $nonce . '"', $link );
+			$this->assertStringContainsString( '_wpnonce=' . $nonce, html_entity_decode( $link ) );
+		}
 	}
 
 	/**
 	 * @covers ::bbp_subscriptions_handler
 	 * @dataProvider subscription_nonce_actions
 	 */
-	public function test_subscription_accepts_current_and_legacy_post_nonce( $nonce_prefix ) {
+	public function test_subscription_accepts_unprefixed_and_post_scoped_nonce( $nonce_prefix ) {
 		$user_id  = $this->factory->user->create( array( 'role' => bbp_get_participant_role() ) );
 		$forum_id = $this->factory->forum->create();
 
