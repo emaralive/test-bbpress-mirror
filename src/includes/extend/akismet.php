@@ -117,7 +117,7 @@ class BBP_Akismet {
 
 		$user_data['last_active'] = '';
 		$user_data['registered']  = gmdate( 'Y-m-d H:i:s' );
-		$user_data['total_posts'] = (int) bbp_get_user_post_count( $post_data['post_author'] );
+		$user_data['total_posts'] = (int) bbp_get_user_post_count( $post_data['post_author'], true );
 
 		// Get user data
 		$userdata = get_userdata( $post_data['post_author'] );
