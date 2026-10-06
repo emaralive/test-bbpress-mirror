@@ -19,6 +19,8 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Corrected reply position classes and repeated position lookups when replies
+  are rendered outside their topic.
 - Sent accurate author post counts to Akismet when members have at least 1,000
   combined topics and replies.
 - Kept pending, spam, and trashed replies with their topic when merging topics.

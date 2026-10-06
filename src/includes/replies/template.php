@@ -2362,7 +2362,7 @@ function bbp_reply_class( $reply_id = 0, $classes = array() ) {
 		$topic_id  = bbp_get_reply_topic_id( $reply_id );
 		$forum_id  = bbp_get_reply_forum_id( $reply_id );
 		$author_id = bbp_get_reply_author_id( $reply_id );
-		$reply_pos = bbp_get_reply_position( $reply_id, true );
+		$reply_pos = bbp_get_reply_position( $reply_id, $topic_id );
 		$classes   = array_filter( (array) $classes );
 		$count     = isset( $bbp->reply_query->current_post )
 			? (int) $bbp->reply_query->current_post

@@ -590,13 +590,57 @@ class BBP_Tests_Replies_Template_Reply extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_reply_class
 	 * @covers ::bbp_get_reply_class
-	 * @todo   Implement test_bbp_get_reply_class().
+	 *
+	 * @ticket BBP3710
 	 */
 	public function test_bbp_get_reply_class() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$f = $this->factory->forum->create();
+
+		$t1 = $this->factory->topic->create( array(
+			'post_parent' => $f,
+			'topic_meta' => array(
+				'forum_id' => $f,
+			),
+		) );
+
+		$r1 = $this->factory->reply->create_many( 2, array(
+			'post_parent' => $t1,
+			'reply_meta' => array(
+				'forum_id' => $f,
+				'topic_id' => $t1,
+			),
+		) );
+
+		$t2 = $this->factory->topic->create( array(
+			'post_parent' => $f,
+			'topic_meta' => array(
+				'forum_id' => $f,
+			),
+		) );
+
+		$this->factory->reply->create( array(
+			'post_parent' => $t2,
+			'reply_meta' => array(
+				'forum_id' => $f,
+				'topic_id' => $t2,
+			),
+		) );
+
+		// Force an unstored position while another topic is current.
+		bbp_update_reply_position( $r1[1], 0 );
+		bbpress()->current_topic_id = $t2;
+		add_filter( 'bbp_is_single_topic', '__return_true' );
+		add_filter( 'bbp_show_lead_topic', '__return_true' );
+
+		$classes  = bbp_get_reply_class( $r1[1] );
+		$position = get_post_field( 'menu_order', $r1[1] );
+
+		remove_filter( 'bbp_show_lead_topic', '__return_true' );
+		remove_filter( 'bbp_is_single_topic', '__return_true' );
+		bbpress()->current_topic_id = 0;
+
+		$this->assertStringContainsString( 'bbp-reply-position-2', $classes );
+		$this->assertSame( 2, $position );
 	}
 
 	/**
