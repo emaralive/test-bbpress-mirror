@@ -301,6 +301,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 
 		$this->assertNotFalse( has_action( 'bp_parse_query', array( $this->group_extension, 'on_group_forum_page' ) ) );
 		$this->assertFalse( has_filter( 'bbp_is_single_forum', array( $this->group_extension, 'is_single_forum' ) ) );
+		$this->assertTrue( $this->group_extension->enable_nav_item );
 
 		$rewrite_ids = buddypress()->groups->rewrite_ids;
 		buddypress()->pages->groups->id = $this->factory->post->create( array( 'post_type' => 'page' ) );
@@ -308,11 +309,47 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 		$query->set( $rewrite_ids['directory'], 1 );
 		$query->set( $rewrite_ids['single_item'], $group->slug );
 		$query->set( $rewrite_ids['single_item_action'], 'forum' );
+		$nav_state = array();
+		$check_nav = function() use ( &$nav_state ) {
+			$nav_state['forum_filter'] = has_filter( 'bbp_is_single_forum', array( $this->group_extension, 'is_single_forum' ) );
+			$nav_state['single_forum'] = bbp_is_single_forum();
+			$nav_state['menu']         = $this->group_extension->enable_nav_item;
+		};
+		add_action( 'bp_setup_nav', $check_nav );
+		do_action( 'bp_parse_query', $query );
+		remove_action( 'bp_setup_nav', $check_nav );
+
+		$this->assertTrue( bp_is_group() );
+		$this->assertNotFalse( $nav_state['forum_filter'] );
+		$this->assertTrue( $nav_state['single_forum'] );
+		$this->assertTrue( $nav_state['menu'] );
+		$this->assertTrue( bbp_is_single_forum() );
+		$this->assertNotFalse( has_filter( 'bbp_is_single_forum', array( $this->group_extension, 'is_single_forum' ) ) );
+		$this->assertNotFalse( has_filter( 'bbp_map_meta_caps', array( $this->group_extension, 'map_group_forum_meta_caps' ) ) );
+	}
+
+	/**
+	 * @covers ::BBP_Forums_Group_Extension::maybe_unset_forum_menu
+	 */
+	public function test_rewrite_group_without_forum_hides_forum_menu_after_parsing() {
+		if ( 'rewrites' !== bp_core_get_query_parser() ) {
+			$this->markTestSkipped( 'BuddyPress rewrites are not active.' );
+		}
+
+		$group_id              = $this->bp_factory->group->create( array( 'enable_forum' => false ) );
+		$group                 = groups_get_group( $group_id );
+		$this->group_extension = new BBP_Forums_Group_Extension();
+		$this->assertTrue( $this->group_extension->enable_nav_item );
+
+		$rewrite_ids = buddypress()->groups->rewrite_ids;
+		buddypress()->pages->groups->id = $this->factory->post->create( array( 'post_type' => 'page' ) );
+		$query       = new WP_Query();
+		$query->set( $rewrite_ids['directory'], 1 );
+		$query->set( $rewrite_ids['single_item'], $group->slug );
 		do_action( 'bp_parse_query', $query );
 
 		$this->assertTrue( bp_is_group() );
-		$this->assertNotFalse( has_filter( 'bbp_is_single_forum', array( $this->group_extension, 'is_single_forum' ) ) );
-		$this->assertNotFalse( has_filter( 'bbp_map_meta_caps', array( $this->group_extension, 'map_group_forum_meta_caps' ) ) );
+		$this->assertFalse( $this->group_extension->enable_nav_item );
 	}
 
 	/**

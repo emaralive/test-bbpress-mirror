@@ -20,6 +20,7 @@ Development for the next bbPress release is in progress. See the active
 ### Fixed
 
 - Kept pending, spam, and trashed replies with their topic when merging topics.
+- Kept BuddyPress group Forum navigation in sync with group settings under rewrite URLs.
 - Restored private BuddyPress group forum access for members without a bbPress role and reduced queries for large restricted forum lists.
 - Applied the public threaded-replies setting filter while preserving its legacy underscored hook.
 - Avoided unnecessary post queries during BuddyPress group capability checks.
