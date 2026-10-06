@@ -49,6 +49,10 @@ add_filter( 'login_redirect',          'bbp_redirect_login',     2,  3 );
 add_filter( 'logout_url',              'bbp_logout_url',         2,  2 );
 add_filter( 'plugin_locale',           'bbp_plugin_locale',      10, 2 );
 
+// Apply bbPress shortcode policy to forum, topic, and reply content.
+add_filter( 'pre_do_shortcode_tag',     'bbp_pre_do_shortcode_tag', 10, 4 );
+add_filter( 'bbp_pre_do_shortcode_tag', 'bbp_prevent_content_shortcodes', 10, 4 );
+
 // Keep WordPress author discovery limited to non-forum posts.
 add_filter( 'rest_user_query',               'bbp_exclude_forum_posts_from_user_query', 10, 2 );
 add_filter( 'wp_sitemaps_users_query_args',  'bbp_exclude_forum_posts_from_user_query'  );
