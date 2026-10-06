@@ -7,6 +7,41 @@
  */
 class BBP_Tests_Security_Akismet extends BBP_UnitTestCase {
 
+	public function test_akismet_receives_unformatted_author_post_count() {
+		require_once BBP_PLUGIN_DIR . 'includes/extend/akismet.php';
+
+		$user_id  = $this->factory->user->create();
+		$outbound = array();
+		$bypass   = function( $skip, $payload ) use ( &$outbound ) {
+			$outbound = $payload;
+			return true;
+		};
+
+		add_filter( 'bbp_bypass_check_for_spam', $bypass, 10, 2 );
+
+		try {
+			$reflection = new ReflectionClass( 'BBP_Akismet' );
+			$akismet    = $reflection->newInstanceWithoutConstructor();
+
+			foreach ( array( 999, 1000, 1309, 12045 ) as $count ) {
+				bbp_update_user_topic_count( $user_id, 309 );
+				bbp_update_user_reply_count( $user_id, $count - 309 );
+
+				$akismet->check_post( array(
+					'post_author'  => $user_id,
+					'post_parent'  => 0,
+					'post_title'   => 'Topic',
+					'post_content' => 'Body',
+					'post_type'    => bbp_get_topic_post_type(),
+				) );
+
+				$this->assertSame( $count, $outbound['comment_total'] );
+			}
+		} finally {
+			remove_filter( 'bbp_bypass_check_for_spam', $bypass, 10 );
+		}
+	}
+
 	public function test_akismet_preserves_plugin_request_fields_without_credential_values() {
 		require_once BBP_PLUGIN_DIR . 'includes/extend/akismet.php';
 
@@ -126,6 +161,7 @@ class BBP_Tests_Security_Akismet extends BBP_UnitTestCase {
 
 			$this->assertSame( 'Guest Author', $result['bbp_post_as_submitted']['comment_author'] );
 			$this->assertSame( 'guest@example.org', $result['bbp_post_as_submitted']['comment_author_email'] );
+			$this->assertSame( 0, $result['bbp_post_as_submitted']['comment_total'] );
 		} finally {
 			remove_filter( 'bbp_bypass_check_for_spam', '__return_true' );
 			$_POST = $old_post;

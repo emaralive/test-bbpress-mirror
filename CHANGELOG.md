@@ -19,6 +19,8 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Sent accurate author post counts to Akismet when members have at least 1,000
+  combined topics and replies.
 - Kept pending, spam, and trashed replies with their topic when merging topics.
 - Kept BuddyPress group Forum navigation in sync with group settings under rewrite URLs.
 - Restored private BuddyPress group forum access for members without a bbPress role and reduced queries for large restricted forum lists.
