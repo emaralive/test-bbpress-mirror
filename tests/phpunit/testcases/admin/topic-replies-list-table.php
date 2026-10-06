@@ -10,6 +10,7 @@ class BBP_Tests_Admin_Topic_Replies_List_Table extends BBP_UnitTestCase {
 	private $screen;
 	private $hook_suffix;
 	private $reply;
+	private $topic_id;
 
 	public function setUp(): void {
 		parent::setUp();
@@ -28,6 +29,7 @@ class BBP_Tests_Admin_Topic_Replies_List_Table extends BBP_UnitTestCase {
 		bbp_set_user_role( $user_id, bbp_get_keymaster_role() );
 		$this->set_current_user( $user_id );
 		$this->reply = get_post( $reply_id );
+		$this->topic_id = $topic_id;
 	}
 
 	public function tearDown(): void {
@@ -35,6 +37,7 @@ class BBP_Tests_Admin_Topic_Replies_List_Table extends BBP_UnitTestCase {
 		remove_filter( 'bbp_get_reply_author_email', array( $this, 'unsafe_email' ) );
 		remove_filter( 'bbp_get_reply_url', array( $this, 'unsafe_url' ) );
 		remove_filter( 'get_edit_post_link', array( $this, 'unsafe_url' ) );
+		remove_filter( 'found_posts', array( $this, 'filter_large_reply_count' ), 10 );
 		$GLOBALS['current_screen'] = $this->screen;
 		if ( null === $this->hook_suffix ) {
 			unset( $GLOBALS['hook_suffix'] );
@@ -55,6 +58,10 @@ class BBP_Tests_Admin_Topic_Replies_List_Table extends BBP_UnitTestCase {
 
 	public function unsafe_url() {
 		return 'javascript:alert(1)';
+	}
+
+	public function filter_large_reply_count( $found_posts ) {
+		return 1000;
 	}
 
 	/**
@@ -85,5 +92,60 @@ class BBP_Tests_Admin_Topic_Replies_List_Table extends BBP_UnitTestCase {
 
 		$this->assertSame( 2, substr_count( $output, 'href=""' ) );
 		$this->assertStringNotContainsString( 'javascript:', $output );
+	}
+
+	/**
+	 * @covers BBP_Topic_Replies_List_Table::prepare_items
+	 */
+	public function test_prepare_items_uses_integer_pagination_values() {
+		// Reproduce the formatted metadata count used by the previous pagination.
+		update_post_meta( $this->topic_id, '_bbp_reply_count', 1000 );
+		add_filter( 'found_posts', array( $this, 'filter_large_reply_count' ) );
+
+		$list_table = new BBP_Topic_Replies_List_Table();
+		$list_table->prepare_items( $this->topic_id );
+		remove_filter( 'found_posts', array( $this, 'filter_large_reply_count' ), 10 );
+
+		$this->assertSame( 1000, $list_table->get_pagination_arg( 'total_items' ) );
+		$this->assertSame( 200, $list_table->get_pagination_arg( 'total_pages' ) );
+
+		ob_start();
+		$list_table->display();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( '1,000 items', $output );
+	}
+
+	/**
+	 * @covers BBP_Topic_Replies_List_Table::prepare_items
+	 */
+	public function test_prepare_items_counts_visible_replies() {
+		$this->factory->reply->create_many(
+			5,
+			array(
+				'post_parent' => $this->topic_id,
+				'post_status' => bbp_get_spam_status_id(),
+				'reply_meta'  => array(
+					'forum_id' => bbp_get_topic_forum_id( $this->topic_id ),
+					'topic_id' => $this->topic_id,
+				)
+			)
+		);
+
+		$list_table = new BBP_Topic_Replies_List_Table();
+		$list_table->prepare_items( $this->topic_id );
+
+		$this->assertSame( 6, $list_table->get_pagination_arg( 'total_items' ) );
+		$this->assertSame( 2, $list_table->get_pagination_arg( 'total_pages' ) );
+
+		$user_id = $this->factory->user->create( array( 'role' => 'subscriber' ) );
+		bbp_set_user_role( $user_id, bbp_get_participant_role() );
+		$this->set_current_user( $user_id );
+
+		$list_table = new BBP_Topic_Replies_List_Table();
+		$list_table->prepare_items( $this->topic_id );
+
+		$this->assertSame( 1, $list_table->get_pagination_arg( 'total_items' ) );
+		$this->assertSame( 1, $list_table->get_pagination_arg( 'total_pages' ) );
 	}
 }

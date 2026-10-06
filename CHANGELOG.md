@@ -60,6 +60,8 @@ Development for the next bbPress release is in progress. See the active
 - Prevented threaded reply ancestry from including an invalid parent and avoided redundant reply-position writes.
 - Restored assigned moderator names in forum edit forms and corrected forum type and visibility dropdown behavior.
 - Kept closed category ancestors from being ignored by forum status checks.
+- Fixed the topic-edit Replies metabox pagination for large topics and
+  non-public replies.
 - Preserved topic subscriptions when topics and replies are edited in administration.
 - Cache a distinct count of current-site forum-role holders for forum statistics,
   invalidating it when users or their capabilities change. Use the WordPress
