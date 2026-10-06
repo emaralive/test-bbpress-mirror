@@ -571,6 +571,8 @@ class BBP_Tests_Replies_Template_Reply extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_reply_class
 	 * @covers ::bbp_get_reply_class
+	 *
+	 * @ticket BBP3710
 	 */
 	public function test_bbp_get_reply_class() {
 		$forum_id = $this->factory->forum->create();
@@ -584,6 +586,26 @@ class BBP_Tests_Replies_Template_Reply extends BBP_UnitTestCase {
 		$this->assertStringContainsString( 'extra-reply-class', $classes );
 		$this->expectOutputString( $classes );
 		bbp_reply_class( $reply_id, array( 'extra-reply-class' ) );
+
+		$second_topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$reply_ids       = $this->factory->reply->create_many( 2, array( 'post_parent' => $topic_id ) );
+		$this->factory->reply->create( array( 'post_parent' => $second_topic_id ) );
+
+		// Force an unstored position while another topic is current.
+		bbp_update_reply_position( $reply_ids[1], 0 );
+		bbpress()->current_topic_id = $second_topic_id;
+		add_filter( 'bbp_is_single_topic', '__return_true' );
+		add_filter( 'bbp_show_lead_topic', '__return_true' );
+
+		$classes  = bbp_get_reply_class( $reply_ids[1] );
+		$position = get_post_field( 'menu_order', $reply_ids[1] );
+
+		remove_filter( 'bbp_show_lead_topic', '__return_true' );
+		remove_filter( 'bbp_is_single_topic', '__return_true' );
+		bbpress()->current_topic_id = 0;
+
+		$this->assertStringContainsString( 'bbp-reply-position-3', $classes );
+		$this->assertSame( 3, $position );
 	}
 
 	/**
