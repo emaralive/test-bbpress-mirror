@@ -1164,19 +1164,14 @@ function bbp_get_user_favorites_link( $args = array(), $user_id = 0, $wrap = tru
 	}
 
 	// Validate the object before checking its favorite state
-	if ( empty( $user_id ) || empty( $object_id ) || ! bbp_current_user_can_toggle_engagement( $object_id, $object_type, 'favorite', 'remove' ) ) {
-		return false;
-	}
-
-	// No link if you can't edit yourself
-	if ( ! current_user_can( 'edit_user', $user_id ) ) {
+	if ( empty( $user_id ) || empty( $object_id ) || ! bbp_current_user_can_toggle_engagement( $object_id, $object_type, 'favorite', 'remove', $user_id ) ) {
 		return false;
 	}
 
 	// Decide which link to show
 	$is_fav = bbp_is_user_favorite( $user_id, $object_id );
 	$toggle_action = ! empty( $is_fav ) ? 'remove' : 'add';
-	if ( ! bbp_current_user_can_toggle_engagement( $object_id, $object_type, 'favorite', $toggle_action ) ) {
+	if ( ! bbp_current_user_can_toggle_engagement( $object_id, $object_type, 'favorite', $toggle_action, $user_id ) ) {
 		return false;
 	}
 
@@ -1205,7 +1200,7 @@ function bbp_get_user_favorites_link( $args = array(), $user_id = 0, $wrap = tru
 	$html = sprintf( '%s<span id="favorite-%d"  %s><a href="%s" class="favorite-toggle" data-bbp-object-id="%d" data-bbp-object-type="%s" data-bbp-nonce="%s">%s</a></span>%s', $r['before'], $object_id, $sub, $url, $object_id, $object_type, wp_create_nonce( 'toggle-favorite_' . $object_id ), $text, $r['after'] );
 
 	// Initial output is wrapped in a span, ajax output is hooked to this
-	if ( ! empty( $wrap ) ) {
+	if ( ! empty( $wrap ) && ( bbp_get_current_user_id() === $user_id ) ) {
 		$html = '<span id="favorite-toggle">' . $html . '</span>';
 	}
 
@@ -1371,19 +1366,14 @@ function bbp_get_user_subscribe_link( $args = array(), $user_id = 0, $wrap = tru
 	}
 
 	// Validate the object before checking its subscription state
-	if ( empty( $user_id ) || empty( $object_id ) || ! bbp_current_user_can_toggle_engagement( $object_id, $object_type, 'subscription', 'remove' ) ) {
-		return false;
-	}
-
-	// No link if you can't edit yourself
-	if ( ! current_user_can( 'edit_user', $user_id ) ) {
+	if ( empty( $user_id ) || empty( $object_id ) || ! bbp_current_user_can_toggle_engagement( $object_id, $object_type, 'subscription', 'remove', $user_id ) ) {
 		return false;
 	}
 
 	// Decide which link to show
 	$is_subscribed = bbp_is_user_subscribed( $user_id, $object_id, $object_type );
 	$toggle_action = ! empty( $is_subscribed ) ? 'remove' : 'add';
-	if ( ! bbp_current_user_can_toggle_engagement( $object_id, $object_type, 'subscription', $toggle_action ) ) {
+	if ( ! bbp_current_user_can_toggle_engagement( $object_id, $object_type, 'subscription', $toggle_action, $user_id ) ) {
 		return false;
 	}
 
@@ -1415,7 +1405,7 @@ function bbp_get_user_subscribe_link( $args = array(), $user_id = 0, $wrap = tru
 	$html = sprintf( '%s<span id="subscribe-%d"  %s><a href="%s" class="subscription-toggle" data-bbp-object-id="%d" data-bbp-object-type="%s" data-bbp-nonce="%s">%s</a></span>%s', $r['before'], $object_id, $sub, $url, $object_id, $object_type, wp_create_nonce( $nonce_action ), $text, $r['after'] );
 
 	// Initial output is wrapped in a span, ajax output is hooked to this
-	if ( ! empty( $wrap ) ) {
+	if ( ! empty( $wrap ) && ( bbp_get_current_user_id() === $user_id ) ) {
 		$html = '<span id="subscription-toggle">' . $html . '</span>';
 	}
 

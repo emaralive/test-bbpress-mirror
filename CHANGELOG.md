@@ -20,6 +20,9 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Restored controls for privileged users to manage another user's favorites and
+  subscriptions.
+
 - Fixed the topic-edit Replies metabox pagination for large topics and
   non-public replies.
 - Restored the original subscription link nonce so AJAX handlers in third-party

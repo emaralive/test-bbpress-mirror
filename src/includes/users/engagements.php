@@ -451,6 +451,40 @@ function bbp_update_topic_engagements( $topic_id = 0 ) {
 /** Engagement Toggles ********************************************************/
 
 /**
+ * Check whether the current user can manage a user's engagements.
+ *
+ * With no user ID, this function uses the displayed user and returns false if
+ * no user is displayed.
+ *
+ * @since 2.6.20 bbPress (r7849)
+ *
+ * @param string $engagement Favorite or subscription. Defaults to the current
+ *                           favorites or subscriptions view.
+ * @param int    $user_id    User ID. Defaults to the displayed user.
+ * @return bool Whether the current user can manage the user's engagements.
+ */
+function bbp_current_user_can_manage_engagements( $engagement = '', $user_id = 0 ) {
+	if ( empty( $engagement ) ) {
+		if ( bbp_is_favorites() ) {
+			$engagement = 'favorite';
+		} elseif ( bbp_is_subscriptions() ) {
+			$engagement = 'subscription';
+		}
+	}
+
+	$user_id         = ! empty( $user_id )
+		? bbp_get_user_id( $user_id, false, false )
+		: (int) bbp_get_displayed_user_id();
+	$current_user_id = bbp_get_current_user_id();
+	$retval          = in_array( $engagement, array( 'favorite', 'subscription' ), true )
+		&& ! empty( $user_id )
+		&& ( ( $user_id === $current_user_id ) || current_user_can( 'edit_user', $user_id ) );
+
+	// Filter & return.
+	return (bool) apply_filters( 'bbp_current_user_can_manage_engagements', $retval, $engagement, $user_id, $current_user_id );
+}
+
+/**
  * Check whether the current user can toggle a favorite or subscription.
  *
  * Only topics may be favorited. Topics and forums may be subscribed to, and
@@ -459,15 +493,21 @@ function bbp_update_topic_engagements( $topic_id = 0 ) {
  * changes.
  *
  * @since 2.6.19 bbPress (r7643)
+ * @since 2.6.20 bbPress (r7849) Added the `$user_id` parameter.
  *
  * @param int    $object_id   Post ID.
  * @param string $object_type Metadata object type; only post is supported.
  * @param string $engagement  Favorite or subscription.
  * @param string $action      Add or remove.
+ * @param int    $user_id     User ID. Defaults to the current user.
  * @return bool Whether the current user can toggle the engagement.
  */
-function bbp_current_user_can_toggle_engagement( $object_id = 0, $object_type = 'post', $engagement = 'subscription', $action = 'add' ) {
-	if ( ( 'post' !== $object_type ) || ! in_array( $action, array( 'add', 'remove' ), true ) ) {
+function bbp_current_user_can_toggle_engagement( $object_id = 0, $object_type = 'post', $engagement = 'subscription', $action = 'add', $user_id = 0 ) {
+	$user_id = ! empty( $user_id )
+		? bbp_get_user_id( $user_id, false, false )
+		: bbp_get_current_user_id();
+
+	if ( empty( $user_id ) || ( 'post' !== $object_type ) || ! in_array( $action, array( 'add', 'remove' ), true ) || ! bbp_current_user_can_manage_engagements( $engagement, $user_id ) ) {
 		return false;
 	}
 
@@ -652,8 +692,10 @@ function bbp_favorites_handler( $action = '' ) {
 	}
 
 	// What action is taking place?
-	$topic_id = bbp_get_topic_id( $_GET['object_id'] );
-	$user_id  = bbp_get_user_id( 0, true, true );
+	$topic_id     = bbp_get_topic_id( $_GET['object_id'] );
+	$user_id      = bbp_is_favorites()
+		? bbp_get_user_id( 0, true, true )
+		: bbp_get_current_user_id();
 	$toggle_action = ( 'bbp_favorite_remove' === $action ) ? 'remove' : 'add';
 
 	// Check for empty topic
@@ -665,7 +707,7 @@ function bbp_favorites_handler( $action = '' ) {
 		bbp_add_error( 'bbp_favorite_nonce', __( '<strong>Error</strong>: Are you sure you wanted to do that?', 'bbpress' ) );
 
 	// Check current user's ability to edit the user
-	} elseif ( ! current_user_can( 'edit_user', $user_id ) ) {
+	} elseif ( ! bbp_current_user_can_manage_engagements( 'favorite', $user_id ) ) {
 		bbp_add_error( 'bbp_favorite_permission', __( '<strong>Error</strong>: You do not have permission to edit favorites for that user.', 'bbpress' ) );
 	}
 
@@ -945,7 +987,9 @@ function bbp_subscriptions_handler( $action = '' ) {
 	}
 
 	// Get required data
-	$user_id     = bbp_get_current_user_id();
+	$user_id     = bbp_is_subscriptions()
+		? bbp_get_user_id( 0, true, true )
+		: bbp_get_current_user_id();
 	$object_id   = absint( $_GET['object_id'] );
 	$object_type = 'post';
 	if ( ! empty( $_GET['object_type'] ) ) {
@@ -962,7 +1006,7 @@ function bbp_subscriptions_handler( $action = '' ) {
 		bbp_add_error( 'bbp_subscription_object_id', __( '<strong>Error</strong>: Are you sure you wanted to do that?', 'bbpress' ) );
 
 	// Check current user's ability to edit the user
-	} elseif ( ! current_user_can( 'edit_user', $user_id ) ) {
+	} elseif ( ! bbp_current_user_can_manage_engagements( 'subscription', $user_id ) ) {
 		bbp_add_error( 'bbp_subscription_permission', __( '<strong>Error</strong>: You do not have permission to edit subscriptions of that user.', 'bbpress' ) );
 	}
 
