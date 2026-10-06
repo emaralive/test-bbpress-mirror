@@ -438,6 +438,11 @@ function bbp_theme_compat_reset_post( $args = array() ) {
 		);
 	}
 
+	// Use generated content when a theme requests an excerpt
+	if ( isset( $args['post_content'] ) && ! isset( $args['post_excerpt'] ) ) {
+		$args['post_excerpt'] = $args['post_content'];
+	}
+
 	// Parse & filter
 	$dummy = bbp_parse_args( $args, $defaults, 'theme_compat_reset_post' );
 

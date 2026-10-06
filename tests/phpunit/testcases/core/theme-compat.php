@@ -52,6 +52,35 @@ class BBP_Tests_Core_Theme_Compat extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @ticket 3431
+	 */
+	public function test_theme_compat_reset_post_copies_content_to_excerpt() {
+		$content = '<div class="bbpress">Generated bbPress content</div>';
+
+		bbp_theme_compat_reset_post(
+			array(
+				'post_content' => $content,
+			)
+		);
+
+		$this->assertSame( $content, get_the_excerpt() );
+	}
+
+	/**
+	 * @ticket 3431
+	 */
+	public function test_theme_compat_reset_post_preserves_explicit_excerpt() {
+		bbp_theme_compat_reset_post(
+			array(
+				'post_content' => 'Generated bbPress content',
+				'post_excerpt' => 'Explicit excerpt',
+			)
+		);
+
+		$this->assertSame( 'Explicit excerpt', get_the_excerpt() );
+	}
+
+	/**
 	 * @ticket 3487
 	 * @dataProvider get_theme_compat_template_cases
 	 *
