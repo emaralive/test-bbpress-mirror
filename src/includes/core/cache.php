@@ -189,7 +189,8 @@ function bbp_clean_user_count_cache() {
  * @param string    $key     Metadata key.
  */
 function bbp_clean_user_count_cache_on_meta_change( $meta_id, $user_id, $key ) {
-	if ( preg_match( '/(^|_)capabilities$/', $key ) ) {
+	// Table prefixes do not need to end in an underscore.
+	if ( preg_match( '/capabilities$/', $key ) ) {
 		bbp_clean_user_count_cache();
 	}
 }

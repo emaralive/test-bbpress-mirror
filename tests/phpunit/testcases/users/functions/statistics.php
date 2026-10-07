@@ -109,6 +109,26 @@ class BBP_Tests_Users_Functions_Statistics extends BBP_UnitTestCase {
 		restore_current_blog();
 	}
 
+	/**
+	 * @dataProvider capability_metadata_key_provider
+	 */
+	public function test_capability_metadata_keys_invalidate_cached_counts( $key, $expected ) {
+		wp_cache_set( 'bbp_forum_users_last_changed', 'before', 'users' );
+
+		bbp_clean_user_count_cache_on_meta_change( 123, 456, $key );
+
+		$this->assertSame( $expected, 'before' !== wp_cache_get( 'bbp_forum_users_last_changed', 'users' ) );
+	}
+
+	public static function capability_metadata_key_provider() {
+		return array(
+			'prefix without an underscore' => array( 'wpcapabilities', true ),
+			'multisite key'                => array( 'wp2_capabilities', true ),
+			'prefix with an underscore'    => array( 'wptests_capabilities', true ),
+			'unrelated metadata'           => array( 'description', false ),
+		);
+	}
+
 	private function user_count( $enabled = true ) {
 		$statistics = bbp_get_statistics( array(
 			'count_users'   => $enabled,
