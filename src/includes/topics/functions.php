@@ -401,6 +401,14 @@ function bbp_new_topic_handler( $action = '' ) {
 
 		do_action( 'bbp_new_topic_post_extras', $topic_id );
 
+		/** Pending ***********************************************************/
+
+		if ( bbp_get_pending_status_id() === bbp_get_topic_status( $topic_id ) ) {
+			bbp_add_error( 'bbp_topic_moderated', esc_html__( 'Your topic is pending moderation.', 'bbpress' ) );
+			unset( $_POST['bbp_topic_title'], $_POST['bbp_topic_content'], $_POST['bbp_topic_tags'] );
+			return;
+		}
+
 		/** Redirect **********************************************************/
 
 		// Redirect to

@@ -14,6 +14,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 	protected $old_server;
 	protected $old_errors;
 	protected $old_allow_forum_mods;
+	protected $old_moderation_keys;
 	protected $old_action_variables;
 	protected $group_extension;
 	protected $template_parts = array();
@@ -53,6 +54,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 		$this->old_server  = $_SERVER;
 		$this->old_errors  = bbpress()->errors;
 		$this->old_allow_forum_mods = get_option( '_bbp_allow_forum_mods', null );
+		$this->old_moderation_keys = get_option( 'moderation_keys' );
 		$this->old_action_variables = buddypress()->action_variables;
 	}
 
@@ -62,6 +64,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 		$_SERVER          = $this->old_server;
 		bbpress()->errors = $this->old_errors;
 		buddypress()->action_variables = $this->old_action_variables;
+		update_option( 'moderation_keys', $this->old_moderation_keys );
 
 		if ( null === $this->old_allow_forum_mods ) {
 			delete_option( '_bbp_allow_forum_mods' );
@@ -87,6 +90,74 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 		unset( buddypress()->is_single_item );
 
 		parent::tearDown();
+	}
+
+	/**
+	 * @covers ::bbp_new_topic_handler
+	 * @covers ::BBP_Forums_Group_Extension::new_topic_redirect_to
+	 */
+	public function test_moderated_group_topic_shows_notice_without_redirecting() {
+		$creator_id = $this->factory->user->create();
+		$member_id  = $this->factory->user->create();
+		$group_id   = $this->bp_factory->group->create( array( 'creator_id' => $creator_id ) );
+		$forum_id   = $this->factory->forum->create();
+		$home_url   = wp_parse_url( home_url( '/' ) );
+		$redirected = false;
+
+		bbp_set_user_role( $member_id, bbp_get_participant_role() );
+		groups_join_group( $group_id, $member_id );
+		$this->attach_forum_to_group( $forum_id, $group_id );
+		$this->set_group_context( $group_id, $member_id );
+		buddypress()->is_single_item = true;
+		update_option( 'moderation_keys', 'review phrase' );
+
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		$_SERVER['HTTP_HOST']      = $home_url['host'];
+		$_SERVER['SERVER_PORT']    = isset( $home_url['port'] ) ? $home_url['port'] : 80;
+		$_SERVER['REQUEST_URI']    = $home_url['path'];
+		$_SERVER['REMOTE_ADDR']    = '127.0.0.1';
+		$_POST                     = array(
+			'bbp_forum_id'     => $forum_id,
+			'bbp_topic_title'   => 'Moderated group topic',
+			'bbp_topic_content' => 'Contains the review phrase.',
+		);
+		$_REQUEST                  = array(
+			'_wpnonce' => wp_create_nonce( 'bbp-new-topic' ),
+		);
+		bbpress()->errors          = new WP_Error();
+
+		$prevent_redirect = function() use ( &$redirected ) {
+			$redirected = true;
+			throw new RuntimeException( 'Group topic redirect.' );
+		};
+		add_filter( 'wp_redirect', $prevent_redirect );
+
+		try {
+			bbp_new_topic_handler( 'bbp-new-topic' );
+		} catch ( RuntimeException $exception ) {
+			if ( 'Group topic redirect.' !== $exception->getMessage() ) {
+				throw $exception;
+			}
+		} finally {
+			remove_filter( 'wp_redirect', $prevent_redirect );
+		}
+
+		$topic_ids = get_posts(
+			array(
+				'fields'           => 'ids',
+				'posts_per_page'   => -1,
+				'post_parent'      => $forum_id,
+				'post_status'      => 'any',
+				'post_type'        => bbp_get_topic_post_type(),
+				'suppress_filters' => true,
+			)
+		);
+
+		$this->assertCount( 1, $topic_ids, implode( ', ', bbpress()->errors->get_error_codes() ) );
+		$this->assertSame( bbp_get_pending_status_id(), get_post_status( $topic_ids[0] ) );
+		$this->assertSame( 'Your topic is pending moderation.', bbpress()->errors->get_error_message( 'bbp_topic_moderated' ) );
+		$this->assertFalse( $redirected );
+		$this->assertSame( '', bbp_get_form_topic_content() );
 	}
 
 	/**
