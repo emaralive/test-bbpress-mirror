@@ -393,8 +393,9 @@ add_filter( 'bbp_make_clickable', 'bbp_make_mentions_clickable',  8 ); // @jjj
  *
  * @since 2.2.0 bbPress (r4214)
  *
- * @param string $locale
- * @return string  $domain
+ * @param string $locale Locale.
+ * @param string $domain Text domain.
+ * @return string Locale.
  */
 function _bbp_filter_locale( $locale = '', $domain = '' ) {
 
@@ -405,7 +406,7 @@ function _bbp_filter_locale( $locale = '', $domain = '' ) {
 
 	return apply_filters( 'bbpress_locale', $locale, $domain );
 }
-add_filter( 'bbp_plugin_locale', '_bbp_filter_locale', 10, 1 );
+add_filter( 'bbp_plugin_locale', '_bbp_filter_locale', 10, 2 );
 
 /**
  * Deprecated forums query filter
