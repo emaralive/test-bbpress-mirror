@@ -494,24 +494,24 @@ function bbp_new_reply_handler( $action = '' ) {
 		if ( bbp_get_pending_status_id() === bbp_get_reply_status( $reply_id ) ) {
 			bbp_add_error( 'bbp_reply_moderated', esc_html__( 'Your reply is pending moderation.', 'bbpress' ) );
 			unset( $_POST['bbp_reply_title'], $_POST['bbp_reply_content'], $_POST['bbp_topic_tags'] );
-			return;
+
+		} else {
+			/** Redirect ******************************************************/
+
+			// Redirect to
+			$redirect_to = bbp_get_redirect_to();
+
+			// Get the reply URL
+			$reply_url = bbp_get_reply_url( $reply_id, $redirect_to );
+
+			// Allow to be filtered
+			$reply_url = apply_filters( 'bbp_new_reply_redirect_to', $reply_url, $redirect_to, $reply_id );
+
+			/** Successful Save ***************************************************/
+
+			// Redirect back to new reply
+			bbp_redirect( $reply_url );
 		}
-
-		/** Redirect **********************************************************/
-
-		// Redirect to
-		$redirect_to = bbp_get_redirect_to();
-
-		// Get the reply URL
-		$reply_url = bbp_get_reply_url( $reply_id, $redirect_to );
-
-		// Allow to be filtered
-		$reply_url = apply_filters( 'bbp_new_reply_redirect_to', $reply_url, $redirect_to, $reply_id );
-
-		/** Successful Save ***************************************************/
-
-		// Redirect back to new reply
-		bbp_redirect( $reply_url );
 
 	/** Errors ****************************************************************/
 

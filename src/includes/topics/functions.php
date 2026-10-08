@@ -404,37 +404,37 @@ function bbp_new_topic_handler( $action = '' ) {
 		if ( bbp_get_pending_status_id() === bbp_get_topic_status( $topic_id ) ) {
 			bbp_add_error( 'bbp_topic_moderated', esc_html__( 'Your topic is pending moderation.', 'bbpress' ) );
 			unset( $_POST['bbp_topic_title'], $_POST['bbp_topic_content'], $_POST['bbp_topic_tags'] );
-			return;
-		}
 
-		/** Redirect **********************************************************/
+		} else {
+			/** Redirect ******************************************************/
 
-		// Redirect to
-		$redirect_to = bbp_get_redirect_to();
+			// Redirect to
+			$redirect_to = bbp_get_redirect_to();
 
-		// Get the topic URL
-		$redirect_url = bbp_get_topic_permalink( $topic_id, $redirect_to );
+			// Get the topic URL
+			$redirect_url = bbp_get_topic_permalink( $topic_id, $redirect_to );
 
-		// Add view all?
-		if ( bbp_get_view_all() || ! empty( $view_all ) ) {
+			// Add view all?
+			if ( bbp_get_view_all() || ! empty( $view_all ) ) {
 
-			// User can moderate, so redirect to topic with view all set
-			if ( current_user_can( 'moderate', $topic_id ) ) {
-				$redirect_url = bbp_add_view_all( $redirect_url );
+				// User can moderate, so redirect to topic with view all set
+				if ( current_user_can( 'moderate', $topic_id ) ) {
+					$redirect_url = bbp_add_view_all( $redirect_url );
 
-			// User cannot moderate, so redirect to forum
-			} else {
-				$redirect_url = bbp_get_forum_permalink( $forum_id );
+				// User cannot moderate, so redirect to forum
+				} else {
+					$redirect_url = bbp_get_forum_permalink( $forum_id );
+				}
 			}
+
+			// Allow to be filtered
+			$redirect_url = apply_filters( 'bbp_new_topic_redirect_to', $redirect_url, $redirect_to, $topic_id );
+
+			/** Successful Save ***************************************************/
+
+			// Redirect back to new topic
+			bbp_redirect( $redirect_url );
 		}
-
-		// Allow to be filtered
-		$redirect_url = apply_filters( 'bbp_new_topic_redirect_to', $redirect_url, $redirect_to, $topic_id );
-
-		/** Successful Save ***************************************************/
-
-		// Redirect back to new topic
-		bbp_redirect( $redirect_url );
 
 	/** Errors ****************************************************************/
 
