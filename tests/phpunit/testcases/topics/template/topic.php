@@ -9,6 +9,17 @@
 class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 
 	/**
+	 * Return the expected output for the active KSES parser.
+	 *
+	 * @param string $legacy   Expected output from the legacy parser.
+	 * @param string $html_api Expected output from the HTML API parser.
+	 * @return string
+	 */
+	private function get_expected_kses_output( $legacy, $html_api ) {
+		return apply_filters( 'wp_kses_force_legacy_parser', true ) ? $legacy : $html_api;
+	}
+
+	/**
 	 * @covers ::bbp_show_lead_topic
 	 */
 	public function test_bbp_show_lead_topic() {
@@ -103,7 +114,7 @@ class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 		) );
 
 		$topic_title = bbp_get_topic_title( $t );
-		$this->assertSame( 'Script Topic', $topic_title );
+		$this->assertSame( $this->get_expected_kses_output( 'Script Topic', 'Topic' ), $topic_title );
 	}
 
 	/**
@@ -122,7 +133,7 @@ class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 		) );
 
 		$topic_title = bbp_get_topic_title( $t );
-		$this->assertSame( 'Script Topic', $topic_title );
+		$this->assertSame( $this->get_expected_kses_output( 'Script Topic', 'Topic' ), $topic_title );
 	}
 
 	/**
@@ -179,7 +190,7 @@ class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 		) );
 
 		$topic_title = bbp_get_topic_title( $t );
-		$this->assertSame( '&lt;alert(&#8220;XSS&#8221;);//&lt;', $topic_title );
+		$this->assertSame( $this->get_expected_kses_output( '&lt;alert(&#8220;XSS&#8221;);//&lt;', '&lt;' ), $topic_title );
 	}
 
 	/**
