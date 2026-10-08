@@ -52,6 +52,39 @@ class BBP_Tests_Core_Theme_Compat extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers ::bbp_remove_all_filters
+	 * @covers ::bbp_restore_all_filters
+	 */
+	public function test_theme_compat_filter_backup_and_restore_preserves_priority_order() {
+		$tag      = 'bbp_test_theme_compat_filters';
+		$first    = function( $value ) {
+			return $value . 'first-';
+		};
+		$second   = function( $value ) {
+			return $value . 'second';
+		};
+		$priority = 20;
+
+		add_filter( $tag, $first, 10 );
+		add_filter( $tag, $second, $priority );
+
+		try {
+			$this->assertTrue( bbp_remove_all_filters( $tag, 10 ) );
+			$this->assertFalse( has_filter( $tag, $first ) );
+			$this->assertSame( $priority, has_filter( $tag, $second ) );
+
+			$this->assertTrue( bbp_restore_all_filters( $tag, 10 ) );
+			$this->assertSame( 10, has_filter( $tag, $first ) );
+			$this->assertSame( $priority, has_filter( $tag, $second ) );
+			$this->assertSame( 'first-second', apply_filters( $tag, '' ) );
+			$this->assertTrue( bbp_restore_all_filters( $tag ) );
+			$this->assertSame( 'first-second', apply_filters( $tag, '' ) );
+		} finally {
+			remove_all_filters( $tag );
+		}
+	}
+
+	/**
 	 * @ticket 3431
 	 */
 	public function test_theme_compat_reset_post_copies_content_to_excerpt() {
