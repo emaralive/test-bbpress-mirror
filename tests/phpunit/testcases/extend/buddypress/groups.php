@@ -10,6 +10,7 @@
 class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 
 	protected $old_post;
+	protected $old_get;
 	protected $old_request;
 	protected $old_server;
 	protected $old_errors;
@@ -50,6 +51,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 		parent::setUp();
 
 		$this->old_post    = $_POST;
+		$this->old_get     = $_GET;
 		$this->old_request = $_REQUEST;
 		$this->old_server  = $_SERVER;
 		$this->old_errors  = bbpress()->errors;
@@ -60,6 +62,7 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 
 	public function tearDown(): void {
 		$_POST            = $this->old_post;
+		$_GET             = $this->old_get;
 		$_REQUEST         = $this->old_request;
 		$_SERVER          = $this->old_server;
 		bbpress()->errors = $this->old_errors;
@@ -812,6 +815,143 @@ class BBP_Tests_Extend_BuddyPress_Groups extends BBP_UnitTestCase {
 
 		$this->group_extension = new BBP_Forums_Group_Extension();
 		add_filter( 'bbp_map_meta_caps', array( $this->group_extension, 'map_group_forum_meta_caps' ), 99, 4 );
+	}
+
+	/**
+	 * @covers ::bbp_is_group_pending_topic
+	 * @covers ::bbp_get_group_pending_topic_id
+	 */
+	public function test_pending_group_topic_route_respects_topic_and_group_permissions() {
+		$creator_id    = $this->factory->user->create();
+		$author_id     = $this->factory->user->create();
+		$member_id     = $this->factory->user->create();
+		$group_mod_id  = $this->factory->user->create();
+		$moderator_id  = $this->factory->user->create();
+		$keymaster_id  = $this->factory->user->create();
+		$group_id       = $this->bp_factory->group->create( array( 'creator_id' => $creator_id ) );
+		$other_group_id = $this->bp_factory->group->create();
+		$forum_id       = $this->factory->forum->create();
+		$other_forum_id = $this->factory->forum->create();
+		$topic_id       = $this->factory->topic->create(
+			array(
+				'post_author' => $author_id,
+				'post_parent' => $forum_id,
+				'post_status' => bbp_get_pending_status_id(),
+				'topic_meta'  => array( 'forum_id' => $forum_id ),
+			)
+		);
+		$published_topic_id = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$other_topic_id     = $this->factory->topic->create(
+			array(
+				'post_parent' => $other_forum_id,
+				'post_status' => bbp_get_pending_status_id(),
+				'topic_meta'  => array( 'forum_id' => $other_forum_id ),
+			)
+		);
+
+		foreach ( array( $creator_id, $author_id, $member_id, $group_mod_id ) as $user_id ) {
+			bbp_set_user_role( $user_id, bbp_get_participant_role() );
+		}
+		bbp_set_user_role( $moderator_id, bbp_get_moderator_role() );
+		bbp_set_user_role( $keymaster_id, bbp_get_keymaster_role() );
+
+		groups_join_group( $group_id, $author_id );
+		groups_join_group( $group_id, $member_id );
+		groups_join_group( $group_id, $group_mod_id );
+		groups_promote_member( $group_mod_id, $group_id, 'mod', $creator_id );
+		$this->attach_forum_to_group( $forum_id, $group_id );
+		$this->attach_forum_to_group( $other_forum_id, $other_group_id );
+		$this->set_group_context( $group_id, $author_id );
+
+		buddypress()->is_single_item   = true;
+		buddypress()->action_variables = array( $this->group_extension->topic_slug, bbp_get_pending_status_id() );
+		$_GET['bbp_topic_id']          = $topic_id;
+
+		$this->assertTrue( bbp_is_group_pending_topic() );
+		$this->assertSame( $topic_id, bbp_get_group_pending_topic_id() );
+
+		foreach ( array( $creator_id, $group_mod_id, $moderator_id, $keymaster_id ) as $user_id ) {
+			$this->set_current_user( $user_id );
+			unset( bbpress()->current_user->is_group_admin, bbpress()->current_user->is_group_mod, bbpress()->current_user->is_group_banned );
+			$this->assertSame( $topic_id, bbp_get_group_pending_topic_id() );
+		}
+
+		foreach ( array( $member_id, 0 ) as $user_id ) {
+			$this->set_current_user( $user_id );
+			unset( bbpress()->current_user->is_group_admin, bbpress()->current_user->is_group_mod, bbpress()->current_user->is_group_banned );
+			$this->assertSame( 0, bbp_get_group_pending_topic_id() );
+		}
+
+		$this->set_current_user( $keymaster_id );
+		$_GET['bbp_topic_id'] = $other_topic_id;
+		$this->assertSame( 0, bbp_get_group_pending_topic_id() );
+
+		$_GET['bbp_topic_id'] = $published_topic_id;
+		$this->assertSame( 0, bbp_get_group_pending_topic_id() );
+	}
+
+	/**
+	 * @covers ::BBP_Forums_Group_Extension::map_topic_permalink_to_group
+	 * @covers ::BBP_Forums_Group_Extension::map_topic_edit_url_to_group
+	 */
+	public function test_pending_topic_uses_id_route_until_published() {
+		$author_id = $this->factory->user->create();
+		$group_id  = $this->bp_factory->group->create( array( 'creator_id' => $author_id ) );
+		$forum_id  = $this->factory->forum->create();
+		$topic_id  = $this->factory->topic->create(
+			array(
+				'post_author' => $author_id,
+				'post_parent' => $forum_id,
+				'post_status' => bbp_get_pending_status_id(),
+				'post_title'  => 'Pending group route',
+				'topic_meta'  => array( 'forum_id' => $forum_id ),
+			)
+		);
+
+		bbp_set_user_role( $author_id, bbp_get_participant_role() );
+		$this->attach_forum_to_group( $forum_id, $group_id );
+		$this->set_group_context( $group_id, $author_id );
+
+		$topic_url = wp_parse_url( html_entity_decode( bbp_get_topic_permalink( $topic_id ) ) );
+		$edit_url  = wp_parse_url( html_entity_decode( bbp_get_topic_edit_url( $topic_id ) ) );
+		parse_str( $topic_url['query'], $topic_query );
+		parse_str( $edit_url['query'], $edit_query );
+
+		$topic_route = isset( $topic_query['bp_group_action_variables'] )
+			? '/' . $topic_query['bp_group_action'] . '/' . implode( '/', $topic_query['bp_group_action_variables'] ) . '/'
+			: $topic_url['path'];
+		$edit_route  = isset( $edit_query['bp_group_action_variables'] )
+			? '/' . $edit_query['bp_group_action'] . '/' . implode( '/', $edit_query['bp_group_action_variables'] ) . '/'
+			: $edit_url['path'];
+
+		$this->assertStringEndsWith( '/forum/topic/pending/', $topic_route );
+		$this->assertStringEndsWith( '/forum/topic/pending/edit/', $edit_route );
+		$this->assertSame( (string) $topic_id, $topic_query['bbp_topic_id'] );
+		$this->assertSame( 'all', $topic_query['view'] );
+		$this->assertSame( (string) $topic_id, $edit_query['bbp_topic_id'] );
+		$this->assertSame( 'all', $edit_query['view'] );
+
+		$filter_topic_id = function() use ( $topic_id ) {
+			return $topic_id;
+		};
+		add_filter( 'bbp_get_topic_id', $filter_topic_id );
+		$pagination = $this->group_extension->replies_pagination( array() );
+		remove_filter( 'bbp_get_topic_id', $filter_topic_id );
+		$pagination_base = html_entity_decode( $pagination['base'] );
+		$pagination_url  = wp_parse_url( $pagination_base );
+		parse_str( $pagination_url['query'], $pagination_query );
+
+		$this->assertStringContainsString( 'paged=%#%', $pagination_base );
+		$this->assertSame( (string) $topic_id, $pagination_query['bbp_topic_id'] );
+		$this->assertSame( 'all', $pagination_query['view'] );
+
+		bbp_approve_topic( $topic_id );
+		$published_url = wp_parse_url( html_entity_decode( bbp_get_topic_permalink( $topic_id ) ) );
+		parse_str( $published_url['query'], $published_query );
+		$published_route = isset( $published_query['bp_group'] ) ? $published_query['bp_group'] : $published_url['path'];
+
+		$this->assertStringEndsWith( '/forum/topic/pending-group-route/', $published_route );
+		$this->assertArrayNotHasKey( 'bbp_topic_id', $published_query );
 	}
 
 	/**
