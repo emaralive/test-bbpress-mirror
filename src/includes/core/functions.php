@@ -643,7 +643,8 @@ function bbp_delete_rewrite_rules() {
  * @return bool
  */
 function bbp_is_post_request() {
-	return (bool) ( 'POST' === strtoupper( $_SERVER['REQUEST_METHOD'] ) );
+	return isset( $_SERVER['REQUEST_METHOD'] )
+		&& ( 'POST' === strtoupper( $_SERVER['REQUEST_METHOD'] ) );
 }
 
 /**
@@ -654,7 +655,8 @@ function bbp_is_post_request() {
  * @return bool
  */
 function bbp_is_get_request() {
-	return (bool) ( 'GET' === strtoupper( $_SERVER['REQUEST_METHOD'] ) );
+	return isset( $_SERVER['REQUEST_METHOD'] )
+		&& ( 'GET' === strtoupper( $_SERVER['REQUEST_METHOD'] ) );
 }
 
 /** Redirection ***************************************************************/

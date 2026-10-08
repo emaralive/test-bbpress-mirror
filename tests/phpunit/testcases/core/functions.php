@@ -94,4 +94,25 @@ class BBP_bbPress_Tests extends WP_UnitTestCase  {
 			remove_filter( 'bbp_get_view_query_args', $filter, 10 );
 		}
 	}
+
+	/**
+	 * @covers ::bbp_is_post_request
+	 * @covers ::bbp_is_get_request
+	 */
+	public function test_request_helpers_return_false_when_the_method_is_unavailable() {
+		$method = isset( $_SERVER['REQUEST_METHOD'] )
+			? $_SERVER['REQUEST_METHOD']
+			: null;
+
+		unset( $_SERVER['REQUEST_METHOD'] );
+
+		try {
+			$this->assertFalse( bbp_is_post_request() );
+			$this->assertFalse( bbp_is_get_request() );
+		} finally {
+			if ( null !== $method ) {
+				$_SERVER['REQUEST_METHOD'] = $method;
+			}
+		}
+	}
 }
