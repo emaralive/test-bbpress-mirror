@@ -1060,11 +1060,28 @@ function bbp_restore_all_filters( $tag, $priority = false ) {
 		// Filters exist in this priority
 		if ( ! empty( $priority ) && isset( $bbp->filters->wp_filter[ $tag ][ $priority ] ) ) {
 
-			// Store filters in a backup
-			$wp_filter[ $tag ][ $priority ] = $bbp->filters->wp_filter[ $tag ][ $priority ];
+			// Restore through WP_Hook to preserve priority order
+			if ( class_exists( 'WP_Hook' ) ) {
+				if ( empty( $wp_filter[ $tag ] ) || ! is_a( $wp_filter[ $tag ], 'WP_Hook' ) ) {
+					$wp_filter[ $tag ] = new WP_Hook();
+				}
+
+				$wp_filter[ $tag ]->remove_all_filters( $priority );
+				foreach ( $bbp->filters->wp_filter[ $tag ][ $priority ] as $callback ) {
+					$wp_filter[ $tag ]->add_filter( $tag, $callback['function'], $priority, $callback['accepted_args'] );
+				}
+
+			// Restore legacy filter arrays in priority order
+			} else {
+				$wp_filter[ $tag ][ $priority ] = $bbp->filters->wp_filter[ $tag ][ $priority ];
+				ksort( $wp_filter[ $tag ] );
+			}
 
 			// Unset the filters
 			unset( $bbp->filters->wp_filter[ $tag ][ $priority ] );
+			if ( empty( $bbp->filters->wp_filter[ $tag ] ) ) {
+				unset( $bbp->filters->wp_filter[ $tag ] );
+			}
 
 		// Priority is empty
 		} else {
