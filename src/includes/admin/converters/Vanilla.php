@@ -575,14 +575,15 @@ class Vanilla extends BBP_Converter_Base {
 	/**
 	 * Clean Root Parent ID -1 to 0
 	 *
-	 * @param int $parent_id Vanilla v2.x Parent ID
+	 * @param int $parent Vanilla v2.x Parent ID
 	 * @return int
 	 */
-	public function callback_forum_parent( $parent_id = 0 ) {
-		if ( -1 === (int) $parent_id ) {
+	// phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.parentFound -- Preserve the public parameter name for PHP 8 named arguments.
+	public function callback_forum_parent( $parent = 0 ) {
+		if ( -1 === (int) $parent ) {
 			return 0;
 		} else {
-			return $parent_id;
+			return $parent;
 		}
 	}
 

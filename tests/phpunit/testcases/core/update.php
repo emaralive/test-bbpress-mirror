@@ -8,6 +8,25 @@
 class BBP_Tests_Core_Update extends BBP_UnitTestCase {
 
 	/**
+	 * @covers ::bbp_maybe_append_pending_upgrade_count
+	 * @ticket BBP3717
+	 *
+	 * @requires PHP 8.0
+	 */
+	public function test_bbp_maybe_append_pending_upgrade_count_preserves_named_arguments() {
+		$this->assertSame(
+			'Label',
+			call_user_func_array(
+				'bbp_maybe_append_pending_upgrade_count',
+				array(
+					'string' => 'Label',
+					'type'   => '',
+				)
+			)
+		);
+	}
+
+	/**
 	 * @covers ::bbp_is_install
 	 */
 	public function test_bbp_is_install() {

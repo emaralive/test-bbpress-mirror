@@ -40,6 +40,22 @@ class BBP_Tests_Admin_Converters_Vanilla extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers Vanilla::callback_forum_parent
+	 * @ticket BBP3717
+	 *
+	 * @requires PHP 8.0
+	 */
+	public function test_callback_forum_parent_preserves_named_arguments() {
+		$this->assertSame(
+			0,
+			call_user_func_array(
+				array( $this->converter, 'callback_forum_parent' ),
+				array( 'parent' => -1 )
+			)
+		);
+	}
+
+	/**
 	 * @covers Vanilla::setup_globals
 	 * @ticket BBP3684
 	 */

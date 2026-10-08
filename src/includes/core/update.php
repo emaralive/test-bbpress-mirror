@@ -653,12 +653,13 @@ function bbp_clear_pending_upgrades() {
  *
  * @since 2.6.0 bbPress (r6897)
  *
- * @param string $text Text to append count to.
+ * @param string $string Text to append count to.
  * @param string $type Type of pending upgrades (upgrade|repair|empty).
  *
  * @return string
  */
-function bbp_maybe_append_pending_upgrade_count( $text = '', $type = '' ) {
+// phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.stringFound -- Preserve the public parameter name for PHP 8 named arguments.
+function bbp_maybe_append_pending_upgrade_count( $string = '', $type = '' ) {
 
 	// Look for an upgrade count
 	$count = bbp_get_pending_upgrade_count( $type );
@@ -666,9 +667,9 @@ function bbp_maybe_append_pending_upgrade_count( $text = '', $type = '' ) {
 	// Append the count to the string
 	if ( ! empty( $count ) ) {
 		$suffix = ' <span class="awaiting-mod count-' . absint( $count ) . '"><span class="pending-count">' . bbp_number_format( $count ) . '</span></span>';
-		$text   = "{$text}{$suffix}";
+		$string = "{$string}{$suffix}";
 	}
 
 	// Return the text, maybe with a count
-	return $text;
+	return $string;
 }

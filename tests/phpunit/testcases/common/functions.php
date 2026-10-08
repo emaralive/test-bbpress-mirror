@@ -13,6 +13,24 @@ class BBP_Tests_Common_Functions extends BBP_UnitTestCase {
 	protected $keymaster_id;
 
 	/**
+	 * @covers ::bbp_get_unique_array_values
+	 * @ticket BBP3717
+	 *
+	 * @requires PHP 8.0
+	 */
+	public function test_bbp_get_unique_array_values_preserves_named_arguments() {
+		$this->assertSame(
+			array( 0 => 'first', 3 => 'second' ),
+			call_user_func_array(
+				'bbp_get_unique_array_values',
+				array(
+					'array' => array( 'first', '', 'first', 'second' ),
+				)
+			)
+		);
+	}
+
+	/**
 	 * @covers ::bbp_number_format
 	 */
 	public function test_bbp_number_format() {

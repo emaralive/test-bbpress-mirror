@@ -61,6 +61,7 @@ function bbp_locate_template( $template_names, $load = false, $require_once = tr
 
 	// No file found yet
 	$located            = false;
+	$template_name      = '';
 	$template_locations = bbp_get_template_stack();
 
 	// Try to find a template file
@@ -348,6 +349,7 @@ function bbp_get_template_stack() {
 
 	// Bail if no stack setup
 	if ( empty( $wp_filter[ $tag ] ) ) {
+		array_pop( $wp_current_filter );
 		return array();
 	}
 
@@ -396,10 +398,11 @@ function bbp_get_template_stack() {
  *
  * @param string $slug
  * @param string $name
- * @param string $display
+ * @param bool $echo Whether to echo the buffered output. Default true.
  * @return string
  */
-function bbp_buffer_template_part( $slug, $name = null, $display = true ) {
+// phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.echoFound -- Preserve the public parameter name for PHP 8 named arguments.
+function bbp_buffer_template_part( $slug, $name = null, $echo = true ) {
 	ob_start();
 
 	// Load the template part
@@ -409,7 +412,7 @@ function bbp_buffer_template_part( $slug, $name = null, $display = true ) {
 	$retval = ob_get_clean();
 
 	// Maybe display the output buffer contents
-	if ( true === $display ) {
+	if ( true === $echo ) {
 		echo $retval;
 	}
 

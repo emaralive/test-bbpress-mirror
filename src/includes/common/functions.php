@@ -244,12 +244,13 @@ function bbp_filter_use_block_editor_for_post_type( $using = false, $post_type =
  *
  * @since 2.6.0 bbPress (r6481)
  *
- * @param array $arr Array to get values of.
+ * @param array $array Array to get values of.
  *
  * @return array
  */
-function bbp_get_unique_array_values( $arr = array() ) {
-	return array_unique( array_filter( array_values( $arr ) ) );
+// phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.arrayFound -- Preserve the public parameter name for PHP 8 named arguments.
+function bbp_get_unique_array_values( $array = array() ) {
+	return array_unique( array_filter( array_values( $array ) ) );
 }
 
 /**
