@@ -85,6 +85,274 @@ class BBP_Tests_Core_Theme_Compat extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers BBP_Theme_Compat
+	 */
+	public function test_theme_compat_package_exposes_registered_properties() {
+		$theme = new BBP_Theme_Compat(
+			array(
+				'id'      => 'test',
+				'name'    => 'Test Theme',
+				'version' => '1.0',
+				'dir'     => '/tmp/test-theme',
+				'url'     => 'https://example.org/test-theme',
+			)
+		);
+
+		$this->assertSame( 'test', $theme->id );
+		$this->assertSame( 'Test Theme', $theme->name );
+		$this->assertSame( '/tmp/test-theme', $theme->get_dir() );
+		$this->assertSame( '', $theme->missing );
+
+		$theme->version = '2.0';
+		$this->assertSame( '2.0', $theme->version );
+	}
+
+	/**
+	 * @covers ::bbp_get_current_template_pack
+	 * @covers ::bbp_get_theme_compat_id
+	 * @covers ::bbp_get_theme_compat_name
+	 * @covers ::bbp_get_theme_compat_version
+	 * @covers ::bbp_get_theme_compat_dir
+	 * @covers ::bbp_get_theme_compat_url
+	 */
+	public function test_theme_compat_package_accessors_and_filter() {
+		$bbp            = bbpress();
+		$original_theme = isset( $bbp->theme_compat->theme ) ? $bbp->theme_compat->theme : null;
+		$theme          = new BBP_Theme_Compat(
+			array(
+				'id'      => 'test',
+				'name'    => 'Test Theme',
+				'version' => '1.0',
+				'dir'     => '/tmp/test-theme',
+				'url'     => 'https://example.org/test-theme',
+			)
+		);
+		$filter         = function() {
+			return 'filtered';
+		};
+
+		try {
+			unset( $bbp->theme_compat->theme );
+			$this->assertInstanceOf( 'BBP_Theme_Compat', bbp_get_current_template_pack() );
+
+			$bbp->theme_compat->theme = $theme;
+			$this->assertSame( $theme, bbp_get_current_template_pack() );
+			$this->assertSame( 'test', bbp_get_theme_compat_id() );
+			$this->assertSame( 'Test Theme', bbp_get_theme_compat_name() );
+			$this->assertSame( '1.0', bbp_get_theme_compat_version() );
+			$this->assertSame( '/tmp/test-theme', bbp_get_theme_compat_dir() );
+			$this->assertSame( 'https://example.org/test-theme', bbp_get_theme_compat_url() );
+
+			add_filter( 'bbp_get_theme_compat_id', $filter );
+			$this->assertSame( 'filtered', bbp_get_theme_compat_id() );
+		} finally {
+			remove_filter( 'bbp_get_theme_compat_id', $filter );
+			$bbp->theme_compat->theme = $original_theme;
+		}
+	}
+
+	/**
+	 * @covers ::bbp_register_theme_package
+	 * @covers ::bbp_setup_theme_compat
+	 */
+	public function test_theme_packages_register_override_and_activate() {
+		$bbp               = bbpress();
+		$original_packages = $bbp->theme_compat->packages;
+		$original_theme    = isset( $bbp->theme_compat->theme ) ? $bbp->theme_compat->theme : null;
+		$first             = new BBP_Theme_Compat( array( 'id' => 'test', 'dir' => '/tmp/first' ) );
+		$second            = new BBP_Theme_Compat( array( 'id' => 'test', 'dir' => '/tmp/second' ) );
+
+		try {
+			unset( $bbp->theme_compat->theme );
+			$bbp->theme_compat->packages = array();
+
+			bbp_register_theme_package( 'invalid' );
+			$this->assertSame( array(), $bbp->theme_compat->packages );
+
+			bbp_register_theme_package( $first );
+			bbp_register_theme_package( $second, false );
+			$this->assertSame( $first, $bbp->theme_compat->packages['test'] );
+
+			bbp_register_theme_package( $second );
+			$this->assertSame( $second, $bbp->theme_compat->packages['test'] );
+
+			bbp_setup_theme_compat( 'missing' );
+			$this->assertFalse( isset( $bbp->theme_compat->theme ) );
+
+			bbp_setup_theme_compat( 'test' );
+			$this->assertSame( $second, $bbp->theme_compat->theme );
+			$this->assertSame( 10, has_filter( 'bbp_template_stack', array( $second, 'get_dir' ) ) );
+
+			bbp_setup_theme_compat( 'missing' );
+			$this->assertSame( $second, $bbp->theme_compat->theme );
+		} finally {
+			bbp_deregister_template_stack( array( $second, 'get_dir' ) );
+			$bbp->theme_compat->packages = $original_packages;
+			$bbp->theme_compat->theme    = $original_theme;
+		}
+	}
+
+	/**
+	 * @covers ::bbp_is_theme_compat_active
+	 * @covers ::bbp_set_theme_compat_active
+	 * @covers ::bbp_set_theme_compat_templates
+	 * @covers ::bbp_set_theme_compat_template
+	 * @covers ::bbp_set_theme_compat_original_template
+	 * @covers ::bbp_is_theme_compat_original_template
+	 */
+	public function test_theme_compat_state_helpers() {
+		$compat                = bbpress()->theme_compat;
+		$had_templates         = property_exists( $compat, 'templates' );
+		$had_template          = property_exists( $compat, 'template' );
+		$had_original_template = property_exists( $compat, 'original_template' );
+		$original_templates    = $had_templates ? $compat->templates : null;
+		$original_template     = $had_template ? $compat->template : null;
+		$original_original     = $had_original_template ? $compat->original_template : null;
+
+		try {
+			$this->assertFalse( bbp_set_theme_compat_active( false ) );
+			$this->assertFalse( bbp_is_theme_compat_active() );
+			$this->assertTrue( bbp_set_theme_compat_active() );
+			$this->assertTrue( bbp_is_theme_compat_active() );
+
+			$this->assertSame( array( 'single.php', 'index.php' ), bbp_set_theme_compat_templates( array( 'single.php', 'index.php' ) ) );
+			$this->assertSame( 'single.php', bbp_set_theme_compat_template( 'single.php' ) );
+			$this->assertSame( '/themes/original.php', bbp_set_theme_compat_original_template( '/themes/original.php' ) );
+			$this->assertTrue( bbp_is_theme_compat_original_template( '/themes/original.php' ) );
+			$this->assertFalse( bbp_is_theme_compat_original_template( '/themes/other.php' ) );
+			bbp_set_theme_compat_original_template( '' );
+			$this->assertFalse( bbp_is_theme_compat_original_template( '' ) );
+		} finally {
+			if ( $had_templates ) {
+				bbp_set_theme_compat_templates( $original_templates );
+			} else {
+				unset( $compat->templates );
+			}
+
+			if ( $had_template ) {
+				bbp_set_theme_compat_template( $original_template );
+			} else {
+				unset( $compat->template );
+			}
+
+			if ( $had_original_template ) {
+				bbp_set_theme_compat_original_template( $original_original );
+			} else {
+				unset( $compat->original_template );
+			}
+		}
+	}
+
+	/**
+	 * @covers ::bbp_do_not_redirect_edits
+	 * @covers ::bbp_do_not_redirect_paginations
+	 */
+	public function test_theme_compat_redirect_helpers_only_cancel_matching_pretty_urls() {
+		$wp_query       = bbp_get_wp_query();
+		$original_query = $wp_query->query;
+		$redirect       = 'https://example.org/canonical';
+
+		add_filter( 'bbp_pretty_urls', '__return_false' );
+		add_filter( 'bbp_is_edit', '__return_true' );
+		$this->assertSame( $redirect, bbp_do_not_redirect_edits( $redirect ) );
+		remove_filter( 'bbp_pretty_urls', '__return_false' );
+
+		add_filter( 'bbp_pretty_urls', '__return_true' );
+		try {
+			$this->assertSame( '', bbp_do_not_redirect_edits( $redirect ) );
+			remove_filter( 'bbp_is_edit', '__return_true' );
+			$this->assertSame( $redirect, bbp_do_not_redirect_edits( $redirect ) );
+
+			$wp_query->query['paged'] = 1;
+			add_filter( 'bbp_is_single_topic', '__return_true' );
+			$this->assertSame( $redirect, bbp_do_not_redirect_paginations( $redirect ) );
+
+			$wp_query->query['paged'] = 2;
+			$this->assertSame( '', bbp_do_not_redirect_paginations( $redirect ) );
+			remove_filter( 'bbp_is_single_topic', '__return_true' );
+			$this->assertSame( $redirect, bbp_do_not_redirect_paginations( $redirect ) );
+
+			foreach ( array( 'bbp_is_single_forum', 'bbp_is_single_reply' ) as $filter ) {
+				add_filter( $filter, '__return_true' );
+				$this->assertSame( '', bbp_do_not_redirect_paginations( $redirect ) );
+				remove_filter( $filter, '__return_true' );
+			}
+		} finally {
+			remove_filter( 'bbp_pretty_urls', '__return_true' );
+			remove_filter( 'bbp_is_edit', '__return_true' );
+			remove_filter( 'bbp_is_single_topic', '__return_true' );
+			remove_filter( 'bbp_is_single_forum', '__return_true' );
+			remove_filter( 'bbp_is_single_reply', '__return_true' );
+			$wp_query->query = $original_query;
+		}
+	}
+
+	/**
+	 * @covers ::bbp_remove_all_filters
+	 * @covers ::bbp_restore_all_filters
+	 */
+	public function test_theme_compat_whole_filter_backup_and_restore() {
+		$tag      = 'bbp_test_theme_compat_whole_filters';
+		$first    = function( $value ) {
+			return $value . 'first-';
+		};
+		$second   = function( $value ) {
+			return $value . 'second';
+		};
+		$priority = 20;
+
+		add_filter( $tag, $first, 10 );
+		add_filter( $tag, $second, $priority );
+
+		try {
+			$this->assertTrue( bbp_remove_all_filters( $tag ) );
+			$this->assertFalse( has_filter( $tag ) );
+			$this->assertTrue( bbp_restore_all_filters( $tag ) );
+			$this->assertSame( 10, has_filter( $tag, $first ) );
+			$this->assertSame( $priority, has_filter( $tag, $second ) );
+			$this->assertSame( 'first-second', apply_filters( $tag, '' ) );
+		} finally {
+			remove_all_filters( $tag );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_force_comment_status
+	 * @covers ::bbp_remove_adjacent_posts
+	 */
+	public function test_theme_compat_wordpress_integration_helpers() {
+		$post_id  = self::factory()->post->create();
+		$forum_id = $this->factory->forum->create();
+
+		$this->assertTrue( bbp_force_comment_status( true, $post_id ) );
+		$this->assertFalse( bbp_force_comment_status( true, $forum_id ) );
+
+		$filter = function( $open, $original, $filtered_post_id, $post_type ) use ( $forum_id ) {
+			$this->assertFalse( $open );
+			$this->assertTrue( $original );
+			$this->assertSame( $forum_id, $filtered_post_id );
+			$this->assertSame( bbp_get_forum_post_type(), $post_type );
+
+			return true;
+		};
+
+		add_filter( 'bbp_force_comment_status', $filter, 10, 4 );
+		$this->assertTrue( bbp_force_comment_status( true, $forum_id ) );
+		remove_filter( 'bbp_force_comment_status', $filter, 10 );
+
+		add_action( 'wp_head', 'adjacent_posts_rel_link_wp_head', 10 );
+		add_filter( 'is_bbpress', '__return_false' );
+		bbp_remove_adjacent_posts();
+		$this->assertSame( 10, has_action( 'wp_head', 'adjacent_posts_rel_link_wp_head' ) );
+		remove_filter( 'is_bbpress', '__return_false' );
+
+		add_filter( 'is_bbpress', '__return_true' );
+		bbp_remove_adjacent_posts();
+		$this->assertFalse( has_action( 'wp_head', 'adjacent_posts_rel_link_wp_head' ) );
+		remove_filter( 'is_bbpress', '__return_true' );
+	}
+
+	/**
 	 * @ticket 3431
 	 */
 	public function test_theme_compat_reset_post_copies_content_to_excerpt() {
