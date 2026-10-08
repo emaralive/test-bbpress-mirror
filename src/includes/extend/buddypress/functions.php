@@ -137,16 +137,29 @@ function bbp_filter_modify_page_title( $new_title = '', $old_title = '', $sep = 
 				return $new_title;
 			}
 
-			// Get a topic belonging to the current group's forums
-			$topic = get_posts(
-				array(
-					'name'            => bp_action_variable( 1 ),
-					'post_parent__in' => $forum_ids,
-					'post_status'     => array_keys( bbp_get_topic_statuses() ),
-					'post_type'       => bbp_get_topic_post_type(),
-					'numberposts'     => 1
-				)
+			$topic_args = array(
+				'name'            => bp_action_variable( 1 ),
+				'post_parent__in' => $forum_ids,
+				'post_status'     => array_keys( bbp_get_topic_statuses() ),
+				'post_type'       => bbp_get_topic_post_type(),
+				'numberposts'     => 1
 			);
+
+			// Pending topics use an explicit ID within their group route.
+			if ( bbp_is_group_pending_topic() ) {
+				$topic_id = bbp_get_group_pending_topic_id();
+
+				if ( ! empty( $topic_id ) ) {
+					$topic_args['p'] = $topic_id;
+				} else {
+					$topic_args['post__in'] = array( 0 );
+				}
+
+				unset( $topic_args['name'] );
+			}
+
+			// Get a topic belonging to the current group's forums
+			$topic = get_posts( $topic_args );
 
 			// Add the title only when the topic and its forum are readable
 			if ( ! empty( $topic ) && bbp_user_can_view_forum( array( 'forum_id' => $topic[0]->post_parent ) ) && ( bbp_is_topic_public( $topic[0]->ID ) || current_user_can( 'read_topic', $topic[0]->ID ) ) ) {
@@ -649,6 +662,53 @@ function bbp_is_forum_group_forum( $forum_id = 0 ) {
 
 	// Filter & return
 	return (bool) apply_filters( 'bbp_is_forum_group_forum', $retval, $forum_id, $group_ids );
+}
+
+/** Group Topic Routing ******************************************************/
+
+/**
+ * Return whether the current group route identifies a pending topic by ID.
+ *
+ * @since 2.6.20 bbPress (r7881)
+ *
+ * @return bool Whether this is a pending group topic route.
+ */
+function bbp_is_group_pending_topic() {
+	return bp_is_group()
+		&& bp_is_current_action( 'forum' )
+		&& bp_is_action_variable( 'topic', 0 )
+		&& bp_is_action_variable( bbp_get_pending_status_id(), 1 )
+		&& isset( $_GET['bbp_topic_id'] );
+}
+
+/**
+ * Return the readable pending topic ID from the current group route.
+ *
+ * @since 2.6.20 bbPress (r7881)
+ *
+ * @return int Pending topic ID, or 0 when the route is invalid or unreadable.
+ */
+function bbp_get_group_pending_topic_id() {
+
+	// Bail if this is not a pending group topic route.
+	if ( ! bbp_is_group_pending_topic() ) {
+		return 0;
+	}
+
+	$topic_id  = absint( wp_unslash( $_GET['bbp_topic_id'] ) );
+	$forum_id  = bbp_get_topic_forum_id( $topic_id );
+	$forum_ids = bbp_get_group_forum_ids( bp_get_current_group_id() );
+
+	// Topic must be pending, belong to this group, and be readable.
+	if ( ! bbp_is_topic_pending( $topic_id )
+		|| ! in_array( $forum_id, $forum_ids, true )
+		|| ! current_user_can( 'read_forum', $forum_id )
+		|| ! current_user_can( 'read_topic', $topic_id )
+	) {
+		$topic_id = 0;
+	}
+
+	return (int) apply_filters( 'bbp_get_group_pending_topic_id', $topic_id );
 }
 
 /*** Group Member Status ******************************************************/

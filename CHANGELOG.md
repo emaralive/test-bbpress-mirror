@@ -24,6 +24,8 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Made pending BuddyPress group topics viewable to their authors and moderators
+  inside the group forum.
 - Prevented unknown views from falling back to unrestricted topic queries.
 - Informed authors when newly submitted topics or replies are held for
   moderation.
