@@ -266,6 +266,10 @@ function bbp_view_query( $view = '', $new_args = '' ) {
 	}
 
 	$query_args = bbp_get_view_query_args( $view );
+	$views      = bbp_get_views();
+	if ( ! isset( $views[ $view ] ) && empty( $query_args ) ) {
+		return false;
+	}
 
 	if ( ! empty( $new_args ) ) {
 		$new_args   = bbp_parse_args( $new_args, '', 'view_query' );
