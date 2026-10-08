@@ -47,6 +47,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Prevented unknown views from falling back to unrestricted topic queries.
 - Informed authors when newly submitted topics or replies are held for
   moderation.
 - Restored controls for privileged users to manage another user's favorites and
