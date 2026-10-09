@@ -173,6 +173,7 @@ function bbp_current_author_ua() {
  * Filter user profile data according to the current user's field permissions.
  *
  * @since 2.6.17 bbPress (r7513)
+ * @since 2.6.20 bbPress (r7891) Preserve the nickname when profile fields cannot be edited.
  *
  * @param array $data    Submitted user profile data.
  * @param int   $user_id User being edited.
@@ -193,6 +194,13 @@ function bbp_filter_user_edit_post_data( $data = array(), $user_id = 0 ) {
 			$data['description'],
 			$data['locale']
 		);
+
+		// Keep the stored nickname, which edit_user() requires.
+		if ( ! empty( $user ) ) {
+			$data['nickname'] = ! empty( $user->nickname )
+				? $user->nickname
+				: $user->user_login;
+		}
 
 		// Remove dynamic WordPress contact methods.
 		if ( ! empty( $user ) ) {
