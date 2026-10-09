@@ -27,6 +27,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Changed
 
+- Sent Akismet the edit recheck signal for updated topics and replies.
 - Kept the classic editor for forums, topics, and replies while making bbPress
   blocks available in Posts and Pages.
 - Shortened new-content labels and administration metabox titles.

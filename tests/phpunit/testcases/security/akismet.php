@@ -212,4 +212,55 @@ class BBP_Tests_Security_Akismet extends BBP_UnitTestCase {
 		}
 	}
 
+	public function test_akismet_marks_edited_topics_and_replies_as_rechecks() {
+		foreach ( array( bbp_get_topic_post_type(), bbp_get_reply_post_type() ) as $post_type ) {
+			$payload = $this->get_akismet_check_payload( $post_type, true );
+
+			$this->assertSame( 'edit', $payload['recheck_reason'] );
+		}
+	}
+
+	public function test_akismet_does_not_mark_new_topics_and_replies_as_rechecks() {
+		foreach ( array( bbp_get_topic_post_type(), bbp_get_reply_post_type() ) as $post_type ) {
+			$payload = $this->get_akismet_check_payload( $post_type, false );
+
+			$this->assertArrayNotHasKey( 'recheck_reason', $payload );
+		}
+	}
+
+	private function get_akismet_check_payload( $post_type, $is_edit ) {
+		require_once BBP_PLUGIN_DIR . 'includes/extend/akismet.php';
+
+		$user_id  = $this->factory->user->create();
+		$outbound = array();
+		$bypass   = function( $skip, $payload ) use ( &$outbound ) {
+			$outbound = $payload;
+			return true;
+		};
+		$post_data = array(
+			'post_author'  => $user_id,
+			'post_parent'  => 0,
+			'post_title'   => 'Forum post',
+			'post_content' => 'Body',
+			'post_type'    => $post_type,
+		);
+
+		if ( $is_edit ) {
+			$post_data['ID'] = 123;
+		}
+
+		$this->set_current_user( $user_id );
+		add_filter( 'bbp_bypass_check_for_spam', $bypass, 10, 2 );
+
+		try {
+			$reflection = new ReflectionClass( 'BBP_Akismet' );
+			$akismet    = $reflection->newInstanceWithoutConstructor();
+			$akismet->check_post( $post_data );
+		} finally {
+			remove_filter( 'bbp_bypass_check_for_spam', $bypass, 10 );
+		}
+
+		return $outbound;
+	}
+
 }
