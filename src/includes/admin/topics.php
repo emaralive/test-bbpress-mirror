@@ -1279,12 +1279,8 @@ class BBP_Topics_Admin {
 		// Bail if not viewing spam
 		if (
 			empty( $_GET['post_status'] )
-			||
-			(
-				( bbp_get_spam_status_id() !== $_GET['post_status'] )
-				&&
-				current_user_can( 'moderate' )
-			)
+			|| ( bbp_get_spam_status_id() !== $_GET['post_status'] )
+			|| ! current_user_can( 'moderate' )
 		) {
 			return;
 		}
