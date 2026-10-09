@@ -124,6 +124,60 @@ class BBP_Tests_Core_Update extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers ::bbp_setup_new_site
+	 */
+	public function test_bbp_setup_new_site_creates_initial_content_only_once() {
+		$site_id = get_current_blog_id();
+		$option  = '_bbp_flag_initial_content';
+		$counts  = array(
+			'forum' => (int) wp_count_posts( bbp_get_forum_post_type() )->publish,
+			'topic' => (int) wp_count_posts( bbp_get_topic_post_type() )->publish,
+			'reply' => (int) wp_count_posts( bbp_get_reply_post_type() )->publish,
+		);
+
+		if ( is_multisite() ) {
+			delete_blog_option( $site_id, $option );
+		} else {
+			delete_option( $option );
+		}
+
+		bbp_setup_new_site( $site_id );
+
+		$this->assertSame( $counts['forum'], (int) wp_count_posts( bbp_get_forum_post_type() )->publish );
+		$this->assertSame( $counts['topic'], (int) wp_count_posts( bbp_get_topic_post_type() )->publish );
+		$this->assertSame( $counts['reply'], (int) wp_count_posts( bbp_get_reply_post_type() )->publish );
+		$this->assertSame(
+			'missing',
+			is_multisite()
+				? get_blog_option( $site_id, $option, 'missing' )
+				: get_option( $option, 'missing' )
+		);
+
+		if ( is_multisite() ) {
+			update_blog_option( $site_id, $option, true );
+		} else {
+			update_option( $option, true );
+		}
+
+		bbp_setup_new_site( $site_id );
+
+		$this->assertSame( $counts['forum'] + 1, (int) wp_count_posts( bbp_get_forum_post_type() )->publish );
+		$this->assertSame( $counts['topic'] + 1, (int) wp_count_posts( bbp_get_topic_post_type() )->publish );
+		$this->assertSame( $counts['reply'] + 1, (int) wp_count_posts( bbp_get_reply_post_type() )->publish );
+
+		$create = is_multisite()
+			? get_blog_option( $site_id, $option, false )
+			: get_option( $option, false );
+		$this->assertFalse( (bool) $create );
+
+		bbp_setup_new_site( $site_id );
+
+		$this->assertSame( $counts['forum'] + 1, (int) wp_count_posts( bbp_get_forum_post_type() )->publish );
+		$this->assertSame( $counts['topic'] + 1, (int) wp_count_posts( bbp_get_topic_post_type() )->publish );
+		$this->assertSame( $counts['reply'] + 1, (int) wp_count_posts( bbp_get_reply_post_type() )->publish );
+	}
+
+	/**
 	 * @group canonical
 	 * @covers ::bbp_create_initial_content
 	 */
