@@ -600,6 +600,7 @@ function bbp_get_pending_upgrades( $type = '' ) {
  * @since 2.6.0 bbPress (r6896)
  *
  * @param string $upgrade_id
+ * @return bool True if the pending upgrades option changed, false otherwise.
  */
 function bbp_add_pending_upgrade( $upgrade_id = '' ) {
 
@@ -616,11 +617,12 @@ function bbp_add_pending_upgrade( $upgrade_id = '' ) {
 }
 
 /**
- * Add an upgrade ID to pending upgrades array.
+ * Remove an upgrade ID from the pending upgrades array.
  *
  * @since 2.6.0 bbPress (r6896)
  *
  * @param string $upgrade_id
+ * @return bool True if the pending upgrades option changed, false otherwise.
  */
 function bbp_remove_pending_upgrade( $upgrade_id = '' ) {
 
@@ -643,6 +645,8 @@ function bbp_remove_pending_upgrade( $upgrade_id = '' ) {
  * Delete all pending upgrades.
  *
  * @since 2.6.0 bbPress (r6896)
+ *
+ * @return bool True if the pending upgrades option changed, false otherwise.
  */
 function bbp_clear_pending_upgrades() {
 	return delete_option( '_bbp_db_pending_upgrades' );

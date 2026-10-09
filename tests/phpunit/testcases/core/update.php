@@ -27,6 +27,84 @@ class BBP_Tests_Core_Update extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers ::bbp_add_pending_upgrade
+	 * @covers ::bbp_clear_pending_upgrades
+	 * @covers ::bbp_get_pending_upgrade_count
+	 * @covers ::bbp_get_pending_upgrades
+	 * @covers ::bbp_remove_pending_upgrade
+	 */
+	public function test_pending_upgrade_storage_helpers() {
+		delete_option( '_bbp_db_pending_upgrades' );
+
+		$this->assertSame( array(), bbp_get_pending_upgrades() );
+		$this->assertSame( 0, bbp_get_pending_upgrade_count() );
+
+		$this->assertTrue( bbp_add_pending_upgrade( 'upgrade-one' ) );
+		$this->assertFalse( bbp_add_pending_upgrade( 'upgrade-one' ) );
+		$this->assertTrue( bbp_add_pending_upgrade( 'repair-one' ) );
+		$this->assertSame( array( 'upgrade-one', 'repair-one' ), bbp_get_pending_upgrades() );
+		$this->assertSame( 2, bbp_get_pending_upgrade_count() );
+
+		$this->assertFalse( bbp_remove_pending_upgrade( 'missing' ) );
+		$this->assertTrue( bbp_remove_pending_upgrade( 'upgrade-one' ) );
+		$this->assertSame( array( 'repair-one' ), array_values( bbp_get_pending_upgrades() ) );
+		$this->assertSame( 1, bbp_get_pending_upgrade_count() );
+
+		$this->assertTrue( bbp_clear_pending_upgrades() );
+		$this->assertFalse( bbp_clear_pending_upgrades() );
+		$this->assertSame( array(), bbp_get_pending_upgrades() );
+		$this->assertSame( 0, bbp_get_pending_upgrade_count() );
+	}
+
+	/**
+	 * @covers ::bbp_get_pending_upgrade_count
+	 * @covers ::bbp_get_pending_upgrades
+	 * @covers ::bbp_maybe_append_pending_upgrade_count
+	 */
+	public function test_pending_upgrades_are_filtered_by_registered_tool_type() {
+		if ( ! function_exists( 'bbp_admin' ) ) {
+			require_once BBP_PLUGIN_DIR . 'includes/admin/actions.php';
+		}
+
+		$original_tools = bbp_admin()->tools;
+
+		bbp_admin()->tools = array(
+			'upgrade-one' => array( 'type' => 'upgrade' ),
+			'repair-one'  => array( 'type' => 'repair' ),
+			'upgrade-two' => array( 'type' => 'upgrade' ),
+		);
+
+		update_option(
+			'_bbp_db_pending_upgrades',
+			array( 'upgrade-one', 'repair-one', 'missing', 'upgrade-two' )
+		);
+
+		try {
+			$this->assertSame(
+				array( 'upgrade-one', 'repair-one', 'missing', 'upgrade-two' ),
+				bbp_get_pending_upgrades()
+			);
+			$this->assertSame( 4, bbp_get_pending_upgrade_count() );
+			$this->assertSame(
+				array( 'upgrade-one', 'upgrade-two' ),
+				array_values( bbp_get_pending_upgrades( 'upgrade' ) )
+			);
+			$this->assertSame( array( 'repair-one' ), array_values( bbp_get_pending_upgrades( 'repair' ) ) );
+			$this->assertSame( array(), bbp_get_pending_upgrades( 'missing-type' ) );
+			$this->assertSame( 2, bbp_get_pending_upgrade_count( 'upgrade' ) );
+			$this->assertSame( 1, bbp_get_pending_upgrade_count( 'repair' ) );
+			$this->assertSame(
+				'Updates <span class="awaiting-mod count-2"><span class="pending-count">2</span></span>',
+				bbp_maybe_append_pending_upgrade_count( 'Updates', 'upgrade' )
+			);
+			$this->assertSame( 'Updates', bbp_maybe_append_pending_upgrade_count( 'Updates', 'missing-type' ) );
+		} finally {
+			bbp_admin()->tools = $original_tools;
+			delete_option( '_bbp_db_pending_upgrades' );
+		}
+	}
+
+	/**
 	 * @covers ::bbp_is_install
 	 */
 	public function test_bbp_is_install() {
