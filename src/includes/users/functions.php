@@ -599,6 +599,7 @@ function bbp_user_edit_after() {
  *
  * @since 2.0.0 bbPress (r2660)
  * @since 2.6.0 bbPress (r6619) Signature changed to accept an array of arguments
+ * @since 2.6.20 bbPress (r7910) Include pending topics on the current user's profile.
  *
  * @param array $args    Optional. Arguments to pass into bbp_has_topics()
  *
@@ -621,6 +622,18 @@ function bbp_get_user_topics_started( $args = array() ) {
 	// Parse arguments
 	$r = bbp_parse_args( $args, $defaults, 'get_user_topics_started' );
 
+	// Include the current user's pending topics on their own profile
+	if ( ! isset( $r['post_status'] )
+		&& is_user_logged_in()
+		&& is_numeric( $r['author'] )
+		&& ( get_current_user_id() === (int) $r['author'] )
+		&& ! bbp_get_view_all( 'edit_others_topics' )
+	) {
+		$r['post_status'] = bbp_get_public_topic_statuses();
+		$r['post_status'][] = bbp_get_private_status_id();
+		$r['post_status'][] = bbp_get_pending_status_id();
+	}
+
 	// Get the topics
 	$query   = bbp_has_topics( $r );
 	$user_id = $r['author'];
@@ -634,6 +647,7 @@ function bbp_get_user_topics_started( $args = array() ) {
  *
  * @since 2.2.0 bbPress (r4228)
  * @since 2.6.0 bbPress (r6619) Signature changed to accept an array of arguments
+ * @since 2.6.20 bbPress (r7910) Include pending replies on the current user's profile.
  *
  * @param array $args Optional. Arguments to pass into bbp_has_replies()
  *
@@ -659,6 +673,19 @@ function bbp_get_user_replies_created( $args = array() ) {
 
 	// Parse arguments
 	$r = bbp_parse_args( $args, $defaults, 'get_user_replies_created' );
+
+	// Include the current user's pending replies on their own profile
+	if ( ! isset( $r['post_status'] )
+		&& is_user_logged_in()
+		&& is_numeric( $r['author'] )
+		&& ( get_current_user_id() === (int) $r['author'] )
+		&& ! bbp_get_view_all( 'edit_others_replies' )
+	) {
+		$r['post_status'] = bbp_get_public_reply_statuses();
+		$r['post_status'][] = bbp_get_private_status_id();
+		$r['post_status'][] = bbp_get_pending_status_id();
+	}
+
 	$r['_bbp_public_topic_replies'] = ! bbp_get_view_all( 'edit_others_replies' );
 	unset( $r['_bbp_search_private_topic_replies'] );
 
