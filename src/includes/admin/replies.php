@@ -594,7 +594,7 @@ class BBP_Replies_Admin {
 
 				$is_approve = bbp_is_reply_public( $reply_id );
 				$message    = ( true === $is_approve )
-					? 'unpproved'
+					? 'unapproved'
 					: 'approved';
 				$success    = ( true === $is_approve )
 					? bbp_unapprove_reply( $reply_id )
