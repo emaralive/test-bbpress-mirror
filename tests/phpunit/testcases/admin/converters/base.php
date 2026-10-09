@@ -26,6 +26,36 @@ class BBP_Tests_Admin_Converters_Base_Converter extends BBP_Converter_Base {
 	public function insert_converted_post( $post_data ) {
 		return $this->insert_post( $post_data );
 	}
+
+	public function invoke_callback_slug( $value ) {
+		return $this->callback_slug( $value );
+	}
+
+	public function invoke_callback_negative( $value ) {
+		return $this->callback_negative( $value );
+	}
+
+	public function invoke_callback_html( $value ) {
+		return $this->callback_html( $value );
+	}
+
+	public function invoke_callback_null( $value ) {
+		return $this->callback_null( $value );
+	}
+
+	public function invoke_callback_datetime( $value ) {
+		return $this->callback_datetime( $value );
+	}
+}
+
+class BBP_Tests_Admin_Converters_Base_Delegating_Converter extends BBP_Tests_Admin_Converters_Base_Converter {
+	public $conversion_calls = array();
+
+	public function convert_table( $to_type, $start ) {
+		$this->conversion_calls[] = array( $to_type, $start );
+
+		return $to_type . ':' . $start;
+	}
 }
 
 class BBP_Tests_Admin_Converters_Base_Import_Converter extends BBP_Tests_Admin_Converters_Base_Converter {
@@ -88,6 +118,17 @@ class BBP_Tests_Admin_Converters_Base_Import_Converter extends BBP_Tests_Admin_C
 class BBP_Tests_Admin_Converters_Base_Import_Database extends BBP_Converter_DB {
 	private $test_connected = false;
 
+	public function get_connection_settings() {
+		return array(
+			'user'     => $this->dbuser,
+			'password' => $this->dbpassword,
+			'name'     => $this->dbname,
+			'host'     => $this->dbhost,
+			'ready'    => $this->ready,
+			'connected' => $this->test_connected,
+		);
+	}
+
 	public function db_connect( $allow_bail = true ) {
 		if ( $this->test_connected ) {
 			return true;
@@ -115,6 +156,141 @@ class BBP_Tests_Admin_Converters_Base_Source_Database {
  * @group converters
  */
 class BBP_Tests_Admin_Converters_Base extends BBP_UnitTestCase {
+	/**
+	 * @covers BBP_Converter_DB::__construct
+	 * @ticket 3706
+	 */
+	public function test_converter_database_stores_credentials_without_connecting() {
+		$database = new BBP_Tests_Admin_Converters_Base_Import_Database( 'legacy-user', 'legacy-password', 'legacy-name', 'legacy.invalid:3307' );
+
+		$this->assertSame(
+			array(
+				'user'     => 'legacy-user',
+				'password' => 'legacy-password',
+				'name'     => 'legacy-name',
+				'host'     => 'legacy.invalid:3307',
+				'ready'    => false,
+				'connected' => false,
+			),
+			$database->get_connection_settings()
+		);
+	}
+
+	/**
+	 * @covers BBP_Converter_Base::convert_forums
+	 * @covers BBP_Converter_Base::convert_topics
+	 * @covers BBP_Converter_Base::convert_replies
+	 * @covers BBP_Converter_Base::convert_users
+	 * @covers BBP_Converter_Base::convert_tags
+	 * @covers BBP_Converter_Base::convert_forum_subscriptions
+	 * @covers BBP_Converter_Base::convert_topic_subscriptions
+	 * @covers BBP_Converter_Base::convert_favorites
+	 * @ticket 3706
+	 */
+	public function test_conversion_methods_delegate_type_and_start_row() {
+		$converter = new BBP_Tests_Admin_Converters_Base_Delegating_Converter();
+
+		$this->assertSame( 'forum:1', $converter->convert_forums() );
+		$this->assertSame( 'topic:2', $converter->convert_topics( 2 ) );
+		$this->assertSame( 'reply:3', $converter->convert_replies( 3 ) );
+		$this->assertSame( 'user:4', $converter->convert_users( 4 ) );
+		$this->assertSame( 'tags:5', $converter->convert_tags( 5 ) );
+		$this->assertSame( 'forum_subscriptions:6', $converter->convert_forum_subscriptions( 6 ) );
+		$this->assertSame( 'topic_subscriptions:7', $converter->convert_topic_subscriptions( 7 ) );
+		$this->assertSame( 'favorites:8', $converter->convert_favorites( 8 ) );
+		$this->assertSame(
+			array(
+				array( 'forum', 1 ),
+				array( 'topic', 2 ),
+				array( 'reply', 3 ),
+				array( 'user', 4 ),
+				array( 'tags', 5 ),
+				array( 'forum_subscriptions', 6 ),
+				array( 'topic_subscriptions', 7 ),
+				array( 'favorites', 8 ),
+			),
+			$converter->conversion_calls
+		);
+	}
+
+	/**
+	 * @covers BBP_Converter_Base::callback_slug
+	 * @ticket 3706
+	 */
+	public function test_slug_callback_normalizes_values() {
+		$converter = new BBP_Tests_Admin_Converters_Base_Converter();
+
+		$this->assertSame( 'hello-world', $converter->invoke_callback_slug( 'Hello World!' ) );
+	}
+
+	/**
+	 * @covers BBP_Converter_Base::callback_negative
+	 * @ticket 3706
+	 */
+	public function test_negative_callback_clamps_negative_values() {
+		$converter = new BBP_Tests_Admin_Converters_Base_Converter();
+
+		$this->assertSame( 0, $converter->invoke_callback_negative( -1 ) );
+		$this->assertSame( 0, $converter->invoke_callback_negative( '-1' ) );
+		$this->assertSame( 0, $converter->invoke_callback_negative( -0.5 ) );
+		$this->assertSame( 0, $converter->invoke_callback_negative( 0 ) );
+		$this->assertSame( 2, $converter->invoke_callback_negative( 2 ) );
+		$this->assertNull( $converter->invoke_callback_negative( null ) );
+	}
+
+	/**
+	 * @covers BBP_Converter_Base::callback_html
+	 * @ticket 3706
+	 */
+	public function test_html_callback_converts_bbcode() {
+		require_once BBP_PLUGIN_DIR . 'includes/admin/actions.php';
+
+		$converter = new BBP_Tests_Admin_Converters_Base_Converter();
+
+		try {
+			$this->assertSame( '<b>Bold</b>', $converter->invoke_callback_html( '[b]Bold[/b]' ) );
+		} finally {
+			$instance = new ReflectionProperty( 'BBCode', 'instance' );
+			if ( PHP_VERSION_ID < 80100 ) {
+				$instance->setAccessible( true );
+			}
+			$instance->setValue( null, null );
+		}
+	}
+
+	/**
+	 * @covers BBP_Converter_Base::callback_null
+	 * @ticket 3706
+	 */
+	public function test_null_callback_only_normalizes_null() {
+		$converter = new BBP_Tests_Admin_Converters_Base_Converter();
+
+		$this->assertSame( '', $converter->invoke_callback_null( null ) );
+		$this->assertSame( '', $converter->invoke_callback_null( '' ) );
+		$this->assertSame( 0, $converter->invoke_callback_null( 0 ) );
+		$this->assertSame( '0', $converter->invoke_callback_null( '0' ) );
+		$this->assertFalse( $converter->invoke_callback_null( false ) );
+	}
+
+	/**
+	 * @covers BBP_Converter_Base::callback_datetime
+	 * @ticket 3706
+	 */
+	public function test_datetime_callback_normalizes_timestamps_and_strings() {
+		$converter   = new BBP_Tests_Admin_Converters_Base_Converter();
+		$old_timezone = date_default_timezone_get();
+
+		try {
+			date_default_timezone_set( 'UTC' );
+			$this->assertSame( '2000-01-01 00:00:00', $converter->invoke_callback_datetime( 946684800 ) );
+			$this->assertSame( '2000-01-01 00:00:00', $converter->invoke_callback_datetime( '946684800' ) );
+			$this->assertSame( '2000-01-01 00:00:00', $converter->invoke_callback_datetime( 'January 1, 2000 UTC' ) );
+			$this->assertSame( '1970-01-01 00:00:00', $converter->invoke_callback_datetime( 'not a date' ) );
+		} finally {
+			date_default_timezone_set( $old_timezone );
+		}
+	}
+
 	/**
 	 * @covers BBP_Converter::process_callback
 	 */
