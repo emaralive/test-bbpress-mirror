@@ -1318,6 +1318,192 @@ function bbp_check_for_blacklist( $anonymous_data = array(), $author_id = 0, $ti
 /** Subscriptions *************************************************************/
 
 /**
+ * Return post statuses that defer subscription notifications.
+ *
+ * @since 2.6.20 bbPress (r7899)
+ *
+ * @return array Post statuses that defer subscription notifications.
+ */
+function bbp_get_deferred_subscription_statuses() {
+	$statuses = array(
+		bbp_get_pending_status_id(),
+		bbp_get_spam_status_id()
+	);
+
+	// Filter & return.
+	return (array) apply_filters( 'bbp_get_deferred_subscription_statuses', $statuses );
+}
+
+/**
+ * Mark a subscription notification for later delivery.
+ *
+ * New topics and replies may initially be held for moderation or marked as
+ * spam. Remember those posts so their subscription notifications can be sent
+ * if they are later approved or unspammed.
+ *
+ * @since 2.6.20 bbPress (r7899)
+ *
+ * @param int $post_id Topic or reply ID.
+ * @return bool True when a notification was deferred, false otherwise.
+ */
+function bbp_defer_subscription_notification( $post_id = 0 ) {
+	$post_id = absint( $post_id );
+	$status  = get_post_status( $post_id );
+	$defer   = in_array( $status, bbp_get_deferred_subscription_statuses(), true );
+
+	if ( bbp_is_topic( $post_id ) ) {
+		$hook     = 'bbp_new_topic';
+		$notifier = 'bbp_notify_forum_subscribers';
+	} elseif ( bbp_is_reply( $post_id ) ) {
+		$hook     = 'bbp_new_reply';
+		$notifier = 'bbp_notify_topic_subscribers';
+	} else {
+		return false;
+	}
+
+	// Preserve the established way to disable subscription notifications.
+	if ( ! bbp_is_subscriptions_active() || ( false === has_action( $hook, $notifier ) ) || empty( $defer ) ) {
+		return false;
+	}
+
+	if ( metadata_exists( 'post', $post_id, '_bbp_subscription_notification_pending' ) ) {
+		return true;
+	}
+
+	return (bool) add_post_meta( $post_id, '_bbp_subscription_notification_pending', 1, true );
+}
+
+/**
+ * Send a deferred forum subscription notification when a topic becomes public.
+ *
+ * The pending marker is atomically claimed before notification callbacks run,
+ * so repeated or concurrent status transitions cannot send the same
+ * notification again.
+ *
+ * @since 2.6.20 bbPress (r7899)
+ *
+ * @param string  $new_status New post status.
+ * @param string  $old_status Old post status.
+ * @param WP_Post $post       Post object.
+ * @return bool True when the deferred publication action ran, false otherwise.
+ */
+function bbp_notify_forum_subscribers_on_topic_publication( $new_status = '', $old_status = '', $post = false ) {
+	if ( ! is_a( $post, 'WP_Post' ) || ( bbp_get_topic_post_type() !== $post->post_type ) || ( $new_status === $old_status ) ) {
+		return false;
+	}
+
+	$post_id = absint( $post->ID );
+	$is_public = in_array( $new_status, bbp_get_public_topic_statuses(), true );
+	$has_marker = metadata_exists( 'post', $post_id, '_bbp_subscription_notification_pending' );
+
+	if ( empty( $is_public ) || empty( $has_marker ) ) {
+		return false;
+	}
+
+	// Only one request may claim the deferred notification marker.
+	if ( ! delete_post_meta( $post_id, '_bbp_subscription_notification_pending' ) ) {
+		return false;
+	}
+
+	$was_deferred = in_array( $old_status, bbp_get_deferred_subscription_statuses(), true );
+	if ( empty( $was_deferred ) ) {
+		return false;
+	}
+
+	// Respect sites that disabled the normal new-topic notification.
+	if ( false === has_action( 'bbp_new_topic', 'bbp_notify_forum_subscribers' ) ) {
+		return false;
+	}
+
+	/**
+	 * Fires when a deferred topic first becomes public.
+	 *
+	 * This action only fires while the normal new-topic subscription notifier
+	 * remains registered. Anonymous author data is not persisted for later
+	 * reconstruction, so an empty array is passed.
+	 *
+	 * @since 2.6.20 bbPress (r7899)
+	 *
+	 * @param int   $topic_id      Topic ID.
+	 * @param int   $forum_id      Forum ID.
+	 * @param array $anonymous_data Anonymous author data.
+	 * @param int   $topic_author  Topic author ID.
+	 */
+	do_action( 'bbp_deferred_topic_published', $post_id, bbp_get_topic_forum_id( $post_id ), array(), bbp_get_topic_author_id( $post_id ) );
+
+	return true;
+}
+
+/**
+ * Send a deferred topic subscription notification when a reply becomes public.
+ *
+ * The pending marker is atomically claimed before notification callbacks run,
+ * so repeated or concurrent status transitions cannot send the same
+ * notification again.
+ *
+ * @since 2.6.20 bbPress (r7899)
+ *
+ * @param string  $new_status New post status.
+ * @param string  $old_status Old post status.
+ * @param WP_Post $post       Post object.
+ * @return bool True when the deferred publication action ran, false otherwise.
+ */
+function bbp_notify_topic_subscribers_on_reply_publication( $new_status = '', $old_status = '', $post = false ) {
+	if ( ! is_a( $post, 'WP_Post' ) || ( bbp_get_reply_post_type() !== $post->post_type ) || ( $new_status === $old_status ) ) {
+		return false;
+	}
+
+	$post_id = absint( $post->ID );
+	$is_public = in_array( $new_status, bbp_get_public_reply_statuses(), true );
+	$has_marker = metadata_exists( 'post', $post_id, '_bbp_subscription_notification_pending' );
+
+	if ( empty( $is_public ) || empty( $has_marker ) ) {
+		return false;
+	}
+
+	// Only one request may claim the deferred notification marker.
+	if ( ! delete_post_meta( $post_id, '_bbp_subscription_notification_pending' ) ) {
+		return false;
+	}
+
+	$was_deferred = in_array( $old_status, bbp_get_deferred_subscription_statuses(), true );
+	if ( empty( $was_deferred ) ) {
+		return false;
+	}
+
+	$topic_id = bbp_get_reply_topic_id( $post_id );
+
+	// A reply published before its topic cannot be usefully announced later.
+	if ( ! bbp_is_topic_public( $topic_id ) ) {
+		return false;
+	}
+
+	// Respect sites that disabled the normal new-reply notification.
+	if ( false === has_action( 'bbp_new_reply', 'bbp_notify_topic_subscribers' ) ) {
+		return false;
+	}
+
+	/**
+	 * Fires when a deferred reply first becomes public.
+	 *
+	 * This action only fires while the normal new-reply subscription notifier
+	 * remains registered. Anonymous author data is not persisted for later
+	 * reconstruction, so an empty array is passed.
+	 *
+	 * @since 2.6.20 bbPress (r7899)
+	 *
+	 * @param int   $reply_id      Reply ID.
+	 * @param int   $topic_id      Topic ID.
+	 * @param int   $forum_id      Forum ID.
+	 * @param array $anonymous_data Anonymous author data.
+	 * @param int   $reply_author  Reply author ID.
+	 */
+	do_action( 'bbp_deferred_reply_published', $post_id, $topic_id, bbp_get_reply_forum_id( $post_id ), array(), bbp_get_reply_author_id( $post_id ) );
+
+	return true;
+}
+
+/**
  * Get the "Do Not Reply" email address to use when sending subscription emails.
  *
  * We make some educated guesses here based on the home URL. Filters are
