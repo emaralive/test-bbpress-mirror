@@ -264,4 +264,385 @@ class BBP_Tests_Admin_Settings extends BBP_UnitTestCase {
 		$this->assertStringContainsString( '<strong>Topic slug</strong>', $output );
 		$this->assertStringNotContainsString( '<strong>Forum slug</strong>', $output );
 	}
+
+	private function capture_callback( $callback ) {
+		$level = ob_get_level();
+		ob_start();
+
+		try {
+			call_user_func( $callback );
+			return ob_get_clean();
+		} catch ( Throwable $throwable ) {
+			while ( ob_get_level() > $level ) {
+				ob_end_clean();
+			}
+
+			throw $throwable;
+		}
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_status_section
+	 * @covers ::bbp_admin_setting_callback_user_section
+	 * @covers ::bbp_admin_setting_callback_features_section
+	 * @covers ::bbp_admin_setting_callback_subtheme_section
+	 * @covers ::bbp_admin_setting_callback_per_page_section
+	 * @covers ::bbp_admin_setting_callback_per_rss_page_section
+	 * @covers ::bbp_admin_setting_callback_root_slug_section
+	 * @covers ::bbp_admin_setting_callback_user_slug_section
+	 * @covers ::bbp_admin_setting_callback_single_slug_section
+	 * @covers ::bbp_admin_setting_callback_buddypress_section
+	 * @covers ::bbp_admin_setting_callback_akismet_section
+	 *
+	 * @dataProvider settings_section_callback_provider
+	 */
+	public function test_settings_section_callbacks_output_descriptions( $callback, $description ) {
+		$this->assertStringContainsString( $description, $this->capture_callback( $callback ) );
+	}
+
+	public static function settings_section_callback_provider() {
+		return array(
+			'forum status'  => array( 'bbp_admin_setting_callback_status_section', 'Control posting and editing across all forums.' ),
+			'users'         => array( 'bbp_admin_setting_callback_user_section', 'Setting time limits and other user posting capabilities' ),
+			'features'      => array( 'bbp_admin_setting_callback_features_section', 'Forum features that can be toggled on and off' ),
+			'theme package' => array( 'bbp_admin_setting_callback_subtheme_section', 'How your forum content is displayed' ),
+			'per page'      => array( 'bbp_admin_setting_callback_per_page_section', 'How many topics and replies to show per page' ),
+			'per RSS page'  => array( 'bbp_admin_setting_callback_per_rss_page_section', 'How many topics and replies to show per RSS page' ),
+			'root slug'     => array( 'bbp_admin_setting_callback_root_slug_section', 'Customize your Forums root.' ),
+			'user slugs'    => array( 'bbp_admin_setting_callback_user_slug_section', 'Customize your user profile slugs.' ),
+			'single slugs'  => array( 'bbp_admin_setting_callback_single_slug_section', 'Custom slugs for single forums' ),
+			'BuddyPress'    => array( 'bbp_admin_setting_callback_buddypress_section', 'Forum settings for BuddyPress' ),
+			'Akismet'       => array( 'bbp_admin_setting_callback_akismet_section', 'Forum settings for Akismet' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_anonymous
+	 * @covers ::bbp_admin_setting_callback_favorites
+	 * @covers ::bbp_admin_setting_callback_subscriptions
+	 * @covers ::bbp_admin_setting_callback_engagements
+	 * @covers ::bbp_admin_setting_callback_topic_tags
+	 * @covers ::bbp_admin_setting_callback_forum_mods
+	 * @covers ::bbp_admin_setting_callback_super_mods
+	 * @covers ::bbp_admin_setting_callback_search
+	 * @covers ::bbp_admin_setting_callback_revisions
+	 * @covers ::bbp_admin_setting_callback_use_wp_editor
+	 * @covers ::bbp_admin_setting_callback_use_autoembed
+	 * @covers ::bbp_admin_setting_callback_include_root
+	 * @covers ::bbp_admin_setting_callback_group_forums
+	 * @covers ::bbp_admin_setting_callback_akismet
+	 *
+	 * @dataProvider checkbox_setting_callback_provider
+	 */
+	public function test_checkbox_setting_callbacks_output_inputs_and_labels( $callback, $option, $label ) {
+		$this->set_option( $option, 1 );
+		$output = $this->capture_callback( $callback );
+
+		$this->assertStringContainsString( 'name="' . $option . '"', $output );
+		$this->assertStringContainsString( 'id="' . $option . '"', $output );
+		$this->assertStringContainsString( 'type="checkbox"', $output );
+		$this->assertStringContainsString( " checked='checked'", $output );
+		$this->assertStringNotContainsString( " disabled='disabled'", $output );
+		$this->assertStringContainsString( $label, $output );
+
+		$this->set_option( $option, 0 );
+		$this->assertStringNotContainsString( " checked='checked'", $this->capture_callback( $callback ) );
+
+		bbpress()->options[ $option ] = 1;
+		$this->assertStringContainsString( " disabled='disabled'", $this->capture_callback( $callback ) );
+	}
+
+	public static function checkbox_setting_callback_provider() {
+		return array(
+			'anonymous'     => array( 'bbp_admin_setting_callback_anonymous', '_bbp_allow_anonymous', 'Allow guest users' ),
+			'favorites'     => array( 'bbp_admin_setting_callback_favorites', '_bbp_enable_favorites', 'mark topics as favorites' ),
+			'subscriptions' => array( 'bbp_admin_setting_callback_subscriptions', '_bbp_enable_subscriptions', 'subscribe to forums and topics' ),
+			'engagements'   => array( 'bbp_admin_setting_callback_engagements', '_bbp_enable_engagements', 'tracking of topics' ),
+			'topic tags'    => array( 'bbp_admin_setting_callback_topic_tags', '_bbp_allow_topic_tags', 'Allow topics to have tags' ),
+			'forum mods'    => array( 'bbp_admin_setting_callback_forum_mods', '_bbp_allow_forum_mods', 'dedicated moderators' ),
+			'super mods'    => array( 'bbp_admin_setting_callback_super_mods', '_bbp_allow_super_mods', 'edit users' ),
+			'search'        => array( 'bbp_admin_setting_callback_search', '_bbp_allow_search', 'forum wide search' ),
+			'revisions'     => array( 'bbp_admin_setting_callback_revisions', '_bbp_allow_revisions', 'revision logging' ),
+			'editor'        => array( 'bbp_admin_setting_callback_use_wp_editor', '_bbp_use_wp_editor', 'toolbar &amp; buttons' ),
+			'autoembed'     => array( 'bbp_admin_setting_callback_use_autoembed', '_bbp_use_autoembed', 'Embed media' ),
+			'include root'  => array( 'bbp_admin_setting_callback_include_root', '_bbp_include_root', 'Prefix all forum content' ),
+			'group forums'  => array( 'bbp_admin_setting_callback_group_forums', '_bbp_enable_group_forums', 'BuddyPress Groups' ),
+			'Akismet'       => array( 'bbp_admin_setting_callback_akismet', '_bbp_enable_akismet', 'prevent forum spam' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_topics_per_page
+	 * @covers ::bbp_admin_setting_callback_replies_per_page
+	 * @covers ::bbp_admin_setting_callback_topics_per_rss_page
+	 * @covers ::bbp_admin_setting_callback_replies_per_rss_page
+	 *
+	 * @dataProvider numeric_setting_callback_provider
+	 */
+	public function test_numeric_setting_callbacks_output_minimum_and_value( $callback, $option ) {
+		$this->set_option( $option, 37 );
+		$output = $this->capture_callback( $callback );
+
+		$this->assertStringContainsString( 'name="' . $option . '"', $output );
+		$this->assertStringContainsString( 'type="number" min="1" step="1"', $output );
+		$this->assertStringContainsString( 'value="37"', $output );
+		$this->assertStringNotContainsString( " disabled='disabled'", $output );
+
+		bbpress()->options[ $option ] = 37;
+		$this->assertStringContainsString( " disabled='disabled'", $this->capture_callback( $callback ) );
+	}
+
+	public static function numeric_setting_callback_provider() {
+		return array(
+			'topics per page'      => array( 'bbp_admin_setting_callback_topics_per_page', '_bbp_topics_per_page' ),
+			'replies per page'     => array( 'bbp_admin_setting_callback_replies_per_page', '_bbp_replies_per_page' ),
+			'topics per RSS page'  => array( 'bbp_admin_setting_callback_topics_per_rss_page', '_bbp_topics_per_rss_page' ),
+			'replies per RSS page' => array( 'bbp_admin_setting_callback_replies_per_rss_page', '_bbp_replies_per_rss_page' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_root_slug
+	 * @covers ::bbp_admin_setting_callback_user_slug
+	 * @covers ::bbp_admin_setting_callback_topic_archive_slug
+	 * @covers ::bbp_admin_setting_callback_reply_archive_slug
+	 * @covers ::bbp_admin_setting_callback_user_favs_slug
+	 * @covers ::bbp_admin_setting_callback_user_subs_slug
+	 * @covers ::bbp_admin_setting_callback_user_engagements_slug
+	 * @covers ::bbp_admin_setting_callback_forum_slug
+	 * @covers ::bbp_admin_setting_callback_topic_slug
+	 * @covers ::bbp_admin_setting_callback_reply_slug
+	 * @covers ::bbp_admin_setting_callback_topic_tag_slug
+	 * @covers ::bbp_admin_setting_callback_view_slug
+	 * @covers ::bbp_admin_setting_callback_search_slug
+	 * @covers ::bbp_admin_setting_callback_edit_slug
+	 *
+	 * @dataProvider slug_setting_callback_provider
+	 */
+	public function test_slug_setting_callbacks_output_editable_values( $callback, $option ) {
+		$value = 'custom-' . trim( $option, '_' );
+		$this->set_option( $option, $value );
+		$output = $this->capture_callback( $callback );
+
+		$this->assertStringContainsString( 'name="' . $option . '"', $output );
+		$this->assertStringContainsString( 'class="regular-text code"', $output );
+		$this->assertStringContainsString( 'value="' . $value . '"', $output );
+		$this->assertStringNotContainsString( " disabled='disabled'", $output );
+
+		bbpress()->options[ $option ] = $value;
+		$this->assertStringContainsString( " disabled='disabled'", $this->capture_callback( $callback ) );
+	}
+
+	public static function slug_setting_callback_provider() {
+		return array(
+			'root'          => array( 'bbp_admin_setting_callback_root_slug', '_bbp_root_slug' ),
+			'user'          => array( 'bbp_admin_setting_callback_user_slug', '_bbp_user_slug' ),
+			'topic archive' => array( 'bbp_admin_setting_callback_topic_archive_slug', '_bbp_topic_archive_slug' ),
+			'reply archive' => array( 'bbp_admin_setting_callback_reply_archive_slug', '_bbp_reply_archive_slug' ),
+			'favorites'     => array( 'bbp_admin_setting_callback_user_favs_slug', '_bbp_user_favs_slug' ),
+			'subscriptions' => array( 'bbp_admin_setting_callback_user_subs_slug', '_bbp_user_subs_slug' ),
+			'engagements'   => array( 'bbp_admin_setting_callback_user_engagements_slug', '_bbp_user_engs_slug' ),
+			'forum'         => array( 'bbp_admin_setting_callback_forum_slug', '_bbp_forum_slug' ),
+			'topic'         => array( 'bbp_admin_setting_callback_topic_slug', '_bbp_topic_slug' ),
+			'reply'         => array( 'bbp_admin_setting_callback_reply_slug', '_bbp_reply_slug' ),
+			'topic tag'     => array( 'bbp_admin_setting_callback_topic_tag_slug', '_bbp_topic_tag_slug' ),
+			'view'          => array( 'bbp_admin_setting_callback_view_slug', '_bbp_view_slug' ),
+			'search'        => array( 'bbp_admin_setting_callback_search_slug', '_bbp_search_slug' ),
+			'edit'          => array( 'bbp_admin_setting_callback_edit_slug', '_bbp_edit_slug' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_forums_status
+	 */
+	public function test_forums_status_callback_outputs_each_supported_status() {
+		$this->set_option( '_bbp_forums_status', 'frozen' );
+		$output = $this->capture_callback( 'bbp_admin_setting_callback_forums_status' );
+
+		foreach ( bbp_get_forums_statuses() as $status => $label ) {
+			$this->assertStringContainsString( 'value="' . $status . '"', $output );
+			$this->assertStringContainsString( '>' . $label . '</option>', $output );
+		}
+		$this->assertMatchesRegularExpression( '/value="frozen"[^>]+selected=\'selected\'/', $output );
+		$this->assertStringNotContainsString( " disabled='disabled'", $output );
+
+		bbpress()->options['_bbp_forums_status'] = 'frozen';
+		$this->assertStringContainsString( " disabled='disabled'", $this->capture_callback( 'bbp_admin_setting_callback_forums_status' ) );
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_editlock
+	 * @covers ::bbp_admin_setting_callback_throttle
+	 */
+	public function test_edit_lock_and_throttle_callbacks_output_toggle_and_duration_fields() {
+		$this->set_option( '_bbp_allow_content_edit', 1 );
+		$this->set_option( '_bbp_edit_lock', 17 );
+		$this->set_option( '_bbp_allow_content_throttle', 1 );
+		$this->set_option( '_bbp_throttle_time', 23 );
+		$edit_lock = $this->capture_callback( 'bbp_admin_setting_callback_editlock' );
+		$throttle  = $this->capture_callback( 'bbp_admin_setting_callback_throttle' );
+
+		$this->assertStringContainsString( 'name="_bbp_allow_content_edit"', $edit_lock );
+		$this->assertStringContainsString( 'name="_bbp_edit_lock"', $edit_lock );
+		$this->assertStringContainsString( 'value="17"', $edit_lock );
+		$this->assertStringContainsString( " checked='checked'", $edit_lock );
+		$this->assertStringContainsString( 'name="_bbp_allow_content_throttle"', $throttle );
+		$this->assertStringContainsString( 'name="_bbp_throttle_time"', $throttle );
+		$this->assertStringContainsString( 'value="23"', $throttle );
+		$this->assertStringContainsString( " checked='checked'", $throttle );
+		$this->assertSame( 0, substr_count( $edit_lock, "disabled='disabled'" ) );
+		$this->assertSame( 0, substr_count( $throttle, "disabled='disabled'" ) );
+
+		$this->set_option( '_bbp_allow_content_edit', 0 );
+		$this->set_option( '_bbp_allow_content_throttle', 0 );
+		$this->assertStringNotContainsString( " checked='checked'", $this->capture_callback( 'bbp_admin_setting_callback_editlock' ) );
+		$this->assertStringNotContainsString( " checked='checked'", $this->capture_callback( 'bbp_admin_setting_callback_throttle' ) );
+
+		bbpress()->options['_bbp_allow_content_edit']     = 1;
+		bbpress()->options['_bbp_edit_lock']              = 17;
+		bbpress()->options['_bbp_allow_content_throttle'] = 1;
+		bbpress()->options['_bbp_throttle_time']          = 23;
+		$edit_lock = $this->capture_callback( 'bbp_admin_setting_callback_editlock' );
+		$throttle  = $this->capture_callback( 'bbp_admin_setting_callback_throttle' );
+		$this->assertSame( 2, substr_count( $edit_lock, "disabled='disabled'" ) );
+		$this->assertSame( 2, substr_count( $throttle, "disabled='disabled'" ) );
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_global_access
+	 */
+	public function test_global_access_callback_outputs_default_role_choices() {
+		$this->set_option( '_bbp_allow_global_access', 1 );
+		$this->set_option( '_bbp_default_role', bbp_get_moderator_role() );
+		$output = $this->capture_callback( 'bbp_admin_setting_callback_global_access' );
+
+		$this->assertStringContainsString( 'name="_bbp_allow_global_access"', $output );
+		$this->assertStringContainsString( 'name="_bbp_default_role"', $output );
+		foreach ( array_keys( bbp_get_dynamic_roles() ) as $role ) {
+			$this->assertStringContainsString( 'value="' . $role . '"', $output );
+		}
+		$this->assertMatchesRegularExpression( '/selected=\'selected\' value="' . bbp_get_moderator_role() . '"/', $output );
+		$this->assertStringContainsString( " checked='checked'", $output );
+		$this->assertSame( 0, substr_count( $output, "disabled='disabled'" ) );
+
+		$this->set_option( '_bbp_allow_global_access', 0 );
+		$this->assertStringNotContainsString( " checked='checked'", $this->capture_callback( 'bbp_admin_setting_callback_global_access' ) );
+
+		bbpress()->options['_bbp_allow_global_access'] = 1;
+		bbpress()->options['_bbp_default_role']        = bbp_get_moderator_role();
+		$this->assertSame( 2, substr_count( $this->capture_callback( 'bbp_admin_setting_callback_global_access' ), "disabled='disabled'" ) );
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_thread_replies_depth
+	 */
+	public function test_threaded_replies_callback_honors_the_maximum_depth_filter() {
+		$this->set_option( '_bbp_allow_threaded_replies', 1 );
+		$this->set_option( '_bbp_thread_replies_depth', 3 );
+		$filter = function () {
+			return 3;
+		};
+		add_filter( 'bbp_thread_replies_depth_max', $filter );
+
+		try {
+			$output = $this->capture_callback( 'bbp_admin_setting_callback_thread_replies_depth' );
+			$this->assertStringContainsString( 'name="_bbp_allow_threaded_replies"', $output );
+			$this->assertStringContainsString( 'name="_bbp_thread_replies_depth"', $output );
+			$this->assertStringContainsString( 'value="2"', $output );
+			$this->assertStringContainsString( 'value="3"', $output );
+			$this->assertStringNotContainsString( 'value="4"', $output );
+			$this->assertMatchesRegularExpression( '/value="3"[^>]+selected=\'selected\'/', $output );
+			$this->assertStringContainsString( " checked='checked'", $output );
+			$this->assertSame( 0, substr_count( $output, "disabled='disabled'" ) );
+
+			bbpress()->options['_bbp_allow_threaded_replies'] = 1;
+			bbpress()->options['_bbp_thread_replies_depth']   = 3;
+			$this->assertSame( 2, substr_count( $this->capture_callback( 'bbp_admin_setting_callback_thread_replies_depth' ), "disabled='disabled'" ) );
+		} finally {
+			remove_filter( 'bbp_thread_replies_depth_max', $filter );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_subtheme_id
+	 */
+	public function test_theme_package_callback_lists_packages_and_handles_an_empty_registry() {
+		$packages = bbpress()->theme_compat->packages;
+
+		try {
+			$output = $this->capture_callback( 'bbp_admin_setting_callback_subtheme_id' );
+			$this->assertStringContainsString( 'name="_bbp_theme_package_id"', $output );
+			$this->assertStringContainsString( 'value="default"', $output );
+
+			bbpress()->theme_compat->packages = array();
+			$output = $this->capture_callback( 'bbp_admin_setting_callback_subtheme_id' );
+			$this->assertStringContainsString( 'No template packages available.', $output );
+		} finally {
+			bbpress()->theme_compat->packages = $packages;
+		}
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_show_on_root
+	 */
+	public function test_show_on_root_callback_outputs_both_supported_choices() {
+		$this->set_option( '_bbp_show_on_root', 'topics' );
+		$output = $this->capture_callback( 'bbp_admin_setting_callback_show_on_root' );
+
+		$this->assertStringContainsString( 'name="_bbp_show_on_root"', $output );
+		$this->assertStringContainsString( 'value="forums"', $output );
+		$this->assertStringContainsString( 'value="topics"', $output );
+		$this->assertMatchesRegularExpression( '/selected=\'selected\' value="topics"/', $output );
+		$this->assertStringNotContainsString( " disabled='disabled'", $output );
+
+		bbpress()->options['_bbp_show_on_root'] = 'topics';
+		$this->assertStringContainsString( " disabled='disabled'", $this->capture_callback( 'bbp_admin_setting_callback_show_on_root' ) );
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_group_forums_root_id
+	 */
+	public function test_group_forums_root_callback_removes_an_invalid_root_and_outputs_the_forum_selector() {
+		$this->set_option( '_bbp_group_forums_root_id', 999999 );
+
+		$output = $this->capture_callback( 'bbp_admin_setting_callback_group_forums_root_id' );
+
+		$this->assertStringContainsString( 'id="_bbp_group_forums_root_id"', $output );
+		$this->assertStringContainsString( '&mdash; No parent &mdash;', $output );
+		$this->assertStringContainsString( 'Changing this will not move existing forums.', $output );
+		$this->assertStringNotContainsString( 'create=bbp-group-forum-root', $output );
+		$this->assertStringNotContainsString( "disabled='disabled'", $output );
+		$this->assertFalse( get_option( '_bbp_group_forums_root_id', false ) );
+	}
+
+	/**
+	 * @covers ::bbp_admin_setting_callback_group_forums_root_id
+	 */
+	public function test_group_forums_root_callback_preserves_a_valid_root_and_offers_creation_to_keymasters() {
+		$old_user = get_current_user_id();
+		$forum_id = $this->factory->forum->create( array( 'post_title' => 'Group Forums' ) );
+		$admin_id = $this->factory->user->create( array( 'role' => 'administrator' ) );
+
+		try {
+			$this->set_option( '_bbp_group_forums_root_id', $forum_id );
+			$output = $this->capture_callback( 'bbp_admin_setting_callback_group_forums_root_id' );
+			$this->assertSame( $forum_id, (int) get_option( '_bbp_group_forums_root_id' ) );
+			$this->assertMatchesRegularExpression( '/value="' . $forum_id . '"[^>]+selected=\'selected\'/', $output );
+			$this->assertStringNotContainsString( 'create=bbp-group-forum-root', $output );
+			$this->assertStringNotContainsString( "disabled='disabled'", $output );
+
+			bbpress()->options['_bbp_group_forums_root_id'] = $forum_id;
+			$this->assertStringContainsString( "disabled='disabled'", $this->capture_callback( 'bbp_admin_setting_callback_group_forums_root_id' ) );
+			unset( bbpress()->options['_bbp_group_forums_root_id'] );
+
+			$this->set_option( '_bbp_group_forums_root_id', 0 );
+			bbp_set_user_role( $admin_id, bbp_get_keymaster_role() );
+			$this->set_current_user( $admin_id );
+			$output = $this->capture_callback( 'bbp_admin_setting_callback_group_forums_root_id' );
+			$this->assertStringContainsString( 'create=bbp-group-forum-root', $output );
+			$this->assertStringContainsString( '_wpnonce=', $output );
+		} finally {
+			$this->set_current_user( $old_user );
+		}
+	}
 }
