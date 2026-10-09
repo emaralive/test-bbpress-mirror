@@ -261,8 +261,14 @@ add_action( 'bbp_trash_forum',  'bbp_remove_forum_from_all_subscriptions' );
 add_action( 'bbp_delete_forum', 'bbp_remove_forum_from_all_subscriptions' );
 
 // Subscription notifications
-add_action( 'bbp_new_reply',    'bbp_notify_topic_subscribers', 11, 5 );
-add_action( 'bbp_new_topic',    'bbp_notify_forum_subscribers', 11, 4 );
+add_action( 'bbp_new_reply',                  'bbp_notify_topic_subscribers',          11, 5 );
+add_action( 'bbp_new_topic',                  'bbp_notify_forum_subscribers',          11, 4 );
+add_action( 'bbp_new_reply',                  'bbp_defer_subscription_notification',   12 );
+add_action( 'bbp_new_topic',                  'bbp_defer_subscription_notification',   12 );
+add_action( 'bbp_transition_post_status',     'bbp_notify_forum_subscribers_on_topic_publication', 11, 3 );
+add_action( 'bbp_transition_post_status',     'bbp_notify_topic_subscribers_on_reply_publication', 11, 3 );
+add_action( 'bbp_deferred_reply_published',   'bbp_notify_topic_subscribers',          11, 5 );
+add_action( 'bbp_deferred_topic_published',   'bbp_notify_forum_subscribers',          11, 4 );
 
 // Sticky
 add_action( 'bbp_stick_topic',     'bbp_unstick_topic' );

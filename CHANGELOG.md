@@ -24,6 +24,8 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Sent deferred subscription notifications when moderated topics and replies
+  first become public.
 - Restored super moderator forum-role management for network users before their
   first visit when global access is enabled.
 - Prevented flagged starter forum content from being recreated on later activation passes.
