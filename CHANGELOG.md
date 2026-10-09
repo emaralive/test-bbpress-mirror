@@ -24,6 +24,8 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Restored super moderator forum-role management for network users before their
+  first visit when global access is enabled.
 - Prevented flagged starter forum content from being recreated on later activation passes.
 - Made pending BuddyPress group topics viewable to their authors and moderators
   inside the group forum.
