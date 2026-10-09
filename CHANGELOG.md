@@ -48,6 +48,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Kept pending topics and replies visible to their authors on bbPress profiles.
 - Used locale-aware plural forms for grouped BuddyPress reply notifications.
 - Sent deferred subscription notifications when moderated topics and replies
   first become public.
