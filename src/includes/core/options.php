@@ -36,7 +36,7 @@ function bbp_get_default_options() {
 
 			/** Flags *************************************************************/
 
-			'_bbp_flag_initial_content'   => 1,         // Flag to indicate initial content was created
+			'_bbp_flag_initial_content'   => 1,         // Flag to create initial content
 
 			/** Features **********************************************************/
 
