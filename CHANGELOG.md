@@ -17,6 +17,10 @@ Development for the next bbPress release is in progress. See the active
 
 - Added a site-wide forum status setting for open, closed, or frozen posting.
 
+### Changed
+
+- Sent Akismet the edit recheck signal for updated topics and replies.
+
 ### Security
 
 - Kept bbPress post shortcodes literal in WordPress content loops.
