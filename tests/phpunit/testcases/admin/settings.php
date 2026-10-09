@@ -14,7 +14,11 @@ class BBP_Tests_Admin_Settings extends BBP_UnitTestCase {
 	public function setUp(): void {
 		parent::setUp();
 
-		require_once BBP_PLUGIN_DIR . 'includes/admin/settings.php';
+		if ( ! function_exists( 'bbp_admin' ) ) {
+			require_once BBP_PLUGIN_DIR . 'includes/admin/actions.php';
+		}
+
+		bbp_admin();
 
 		$this->bbp_options = bbpress()->options;
 		bbpress()->options = array();
@@ -643,6 +647,214 @@ class BBP_Tests_Admin_Settings extends BBP_UnitTestCase {
 			$this->assertStringContainsString( '_wpnonce=', $output );
 		} finally {
 			$this->set_current_user( $old_user );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_converter_setting_callback_main_section
+	 * @covers ::bbp_converter_setting_callback_options_section
+	 *
+	 * @dataProvider converter_section_callback_provider
+	 */
+	public function test_converter_section_callbacks_output_descriptions( $callback, $description ) {
+		$this->assertStringContainsString( $description, $this->capture_callback( $callback ) );
+	}
+
+	public static function converter_section_callback_provider() {
+		return array(
+			'connection' => array( 'bbp_converter_setting_callback_main_section', 'database for your previous forums' ),
+			'options'    => array( 'bbp_converter_setting_callback_options_section', 'parameters to help tune the conversion process' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_converter_setting_callback_platform
+	 */
+	public function test_converter_platform_callback_lists_and_selects_filtered_converters() {
+		$this->set_option( '_bbp_converter_platform', 'Test Two' );
+		$filter = function () {
+			return array(
+				'Test One' => '/tmp/TestOne.php',
+				'Test Two' => '/tmp/TestTwo.php',
+			);
+		};
+		add_filter( 'bbp_get_converters', $filter );
+
+		try {
+			$output = $this->capture_callback( 'bbp_converter_setting_callback_platform' );
+			$this->assertStringContainsString( 'name="_bbp_converter_platform"', $output );
+			$this->assertStringContainsString( '<option value="Test One">Test One</option>', $output );
+			$this->assertStringContainsString( '<option value="Test Two" selected=\'selected\'>Test Two</option>', $output );
+			$this->assertStringContainsString( 'The previous forum software', $output );
+		} finally {
+			remove_filter( 'bbp_get_converters', $filter );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_converter_setting_callback_dbserver
+	 * @covers ::bbp_converter_setting_callback_dbport
+	 * @covers ::bbp_converter_setting_callback_dbuser
+	 * @covers ::bbp_converter_setting_callback_dbname
+	 * @covers ::bbp_converter_setting_callback_dbprefix
+	 *
+	 * @dataProvider converter_text_setting_callback_provider
+	 */
+	public function test_converter_text_setting_callbacks_output_stored_values( $callback, $option, $value, $description ) {
+		$this->set_option( $option, $value );
+		$output = $this->capture_callback( $callback );
+
+		$this->assertStringContainsString( 'name="' . $option . '"', $output );
+		$this->assertStringContainsString( 'id="' . $option . '"', $output );
+		$this->assertStringContainsString( 'class="code"', $output );
+		$this->assertStringContainsString( 'value="' . $value . '"', $output );
+		$this->assertStringContainsString( $description, $output );
+		$this->assertStringNotContainsString( "disabled='disabled'", $output );
+
+		bbpress()->options[ $option ] = $value;
+		$this->assertStringContainsString( "disabled='disabled'", $this->capture_callback( $callback ) );
+	}
+
+	public static function converter_text_setting_callback_provider() {
+		return array(
+			'database server' => array( 'bbp_converter_setting_callback_dbserver', '_bbp_converter_db_server', 'db.example.test', 'localhost' ),
+			'database port'   => array( 'bbp_converter_setting_callback_dbport', '_bbp_converter_db_port', '4410', '3306' ),
+			'database user'   => array( 'bbp_converter_setting_callback_dbuser', '_bbp_converter_db_user', 'legacy-user', 'User to access the database' ),
+			'database name'   => array( 'bbp_converter_setting_callback_dbname', '_bbp_converter_db_name', 'legacy-db', 'Name of the database' ),
+			'table prefix'    => array( 'bbp_converter_setting_callback_dbprefix', '_bbp_converter_db_prefix', 'legacy_', 'BuddyPress Legacy' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_converter_setting_callback_dbpass
+	 */
+	public function test_converter_password_callback_never_outputs_the_saved_password() {
+		$this->set_option( '_bbp_converter_db_pass', 'saved-secret' );
+		$output = $this->capture_callback( 'bbp_converter_setting_callback_dbpass' );
+
+		$this->assertStringContainsString( 'name="_bbp_converter_db_pass"', $output );
+		$this->assertStringContainsString( 'type="password" value="" autocomplete="off"', $output );
+		$this->assertStringContainsString( 'name="_bbp_converter_db_pass_clear"', $output );
+		$this->assertStringContainsString( 'Leave blank to keep the saved password.', $output );
+		$this->assertStringNotContainsString( 'saved-secret', $output );
+		$this->assertStringNotContainsString( "disabled='disabled'", $output );
+
+		bbpress()->options['_bbp_converter_db_pass'] = 'forced-secret';
+		$this->assertStringContainsString( "disabled='disabled'", $this->capture_callback( 'bbp_converter_setting_callback_dbpass' ) );
+	}
+
+	/**
+	 * @covers ::bbp_converter_setting_callback_rows
+	 * @covers ::bbp_converter_setting_callback_delay_time
+	 *
+	 * @dataProvider converter_numeric_setting_callback_provider
+	 */
+	public function test_converter_numeric_setting_callbacks_output_limits_and_values( $callback, $option, $value, $minimum, $maximum ) {
+		$this->set_option( $option, $value );
+		$output = $this->capture_callback( $callback );
+
+		$this->assertStringContainsString( 'name="' . $option . '"', $output );
+		$this->assertStringContainsString( 'type="number" min="' . $minimum . '" max="' . $maximum . '"', $output );
+		$this->assertStringContainsString( 'value="' . $value . '"', $output );
+		$this->assertStringNotContainsString( "disabled='disabled'", $output );
+
+		bbpress()->options[ $option ] = $value;
+		$this->assertStringContainsString( "disabled='disabled'", $this->capture_callback( $callback ) );
+	}
+
+	public static function converter_numeric_setting_callback_provider() {
+		return array(
+			'rows'  => array( 'bbp_converter_setting_callback_rows', '_bbp_converter_rows', '321', '1', '5000' ),
+			'delay' => array( 'bbp_converter_setting_callback_delay_time', '_bbp_converter_delay_time', '17', '2', '3600' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_converter_setting_callback_halt
+	 * @covers ::bbp_converter_setting_callback_restart
+	 * @covers ::bbp_converter_setting_callback_clean
+	 *
+	 * @dataProvider converter_checkbox_setting_callback_provider
+	 */
+	public function test_converter_checkbox_setting_callbacks_honor_stored_values( $callback, $option, $label ) {
+		$this->set_option( $option, 1 );
+		$output = $this->capture_callback( $callback );
+		$this->assertStringContainsString( 'name="' . $option . '"', $output );
+		$this->assertStringContainsString( "checked='checked'", $output );
+		$this->assertStringContainsString( $label, $output );
+
+		$this->set_option( $option, 0 );
+		$this->assertStringNotContainsString( "checked='checked'", $this->capture_callback( $callback ) );
+	}
+
+	public static function converter_checkbox_setting_callback_provider() {
+		return array(
+			'halt'    => array( 'bbp_converter_setting_callback_halt', '_bbp_converter_halt', 'Halt the conversion' ),
+			'restart' => array( 'bbp_converter_setting_callback_restart', '_bbp_converter_restart', 'Restart the converter' ),
+			'clean'   => array( 'bbp_converter_setting_callback_clean', '_bbp_converter_clean', 'Purge all meta-data' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_converter_setting_callback_convert_users
+	 */
+	public function test_converter_users_callback_reflects_capability_and_stored_value() {
+		$old_user      = get_current_user_id();
+		$subscriber_id = $this->factory->user->create( array( 'role' => 'subscriber' ) );
+		$admin_id      = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		$admin         = get_userdata( $admin_id );
+
+		try {
+			$this->set_option( '_bbp_converter_convert_users', 1 );
+			$this->set_current_user( $subscriber_id );
+			$output = $this->capture_callback( 'bbp_converter_setting_callback_convert_users' );
+			$this->assertStringNotContainsString( "checked='checked'", $output );
+			$this->assertStringContainsString( "disabled='disabled'", $output );
+			$this->assertStringContainsString( 'A network administrator is required', $output );
+
+			$admin->add_cap( 'bbp_tools_import_users' );
+			$admin->add_cap( bbp_admin()->minimum_capability );
+			$this->set_current_user( 0 );
+			$this->set_current_user( $admin_id );
+			$output = $this->capture_callback( 'bbp_converter_setting_callback_convert_users' );
+			$this->assertStringContainsString( "checked='checked'", $output );
+			$this->assertStringNotContainsString( "disabled='disabled'", $output );
+			$this->assertStringContainsString( 'Passwords remain encrypted', $output );
+
+			$this->set_option( '_bbp_converter_convert_users', 0 );
+			$output = $this->capture_callback( 'bbp_converter_setting_callback_convert_users' );
+			$this->assertStringNotContainsString( "checked='checked'", $output );
+			$this->assertStringNotContainsString( "disabled='disabled'", $output );
+
+			bbpress()->options['_bbp_converter_convert_users'] = 1;
+			$this->assertStringContainsString( "disabled='disabled'", $this->capture_callback( 'bbp_converter_setting_callback_convert_users' ) );
+		} finally {
+			$this->set_current_user( $old_user );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_converter_settings_page
+	 */
+	public function test_converter_settings_page_outputs_ready_and_resume_states() {
+		$converter = bbp_admin()->converter;
+
+		try {
+			bbp_admin()->converter            = new stdClass();
+			bbp_admin()->converter->max_steps = 9;
+			$this->set_option( '_bbp_converter_step', 0 );
+			$output = $this->capture_callback( 'bbp_converter_settings_page' );
+			$this->assertStringContainsString( 'id="bbp-converter-status">Ready', $output );
+			$this->assertStringContainsString( 'id="bbp-converter-start" value="Start"', $output );
+			$this->assertStringContainsString( '<p>Ready to go.</p>', $output );
+
+			$this->set_option( '_bbp_converter_step', 4 );
+			$output = $this->capture_callback( 'bbp_converter_settings_page' );
+			$this->assertStringContainsString( 'id="bbp-converter-status">Up next: step 4', $output );
+			$this->assertStringContainsString( 'id="bbp-converter-start" value="Resume"', $output );
+			$this->assertStringContainsString( 'Previously stopped at step 4 of 9', $output );
+		} finally {
+			bbp_admin()->converter = $converter;
 		}
 	}
 }
