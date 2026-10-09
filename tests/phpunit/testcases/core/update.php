@@ -483,6 +483,85 @@ class BBP_Tests_Core_Update extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers ::bbp_do_activation_redirect
+	 */
+	public function test_bbp_do_activation_redirect() {
+		$old_user      = get_current_user_id();
+		$old_get       = $_GET;
+		$old_screen    = isset( $GLOBALS['current_screen'] ) ? $GLOBALS['current_screen'] : null;
+		$subscriber_id = $this->factory->user->create( array( 'role' => 'subscriber' ) );
+		$admin_id      = $this->factory->user->create( array( 'role' => 'administrator' ) );
+		$redirect      = null;
+		$interrupt     = function ( $location ) use ( &$redirect ) {
+			$redirect = $location;
+			throw new RuntimeException( 'Activation redirect.' );
+		};
+		$cap_filter    = array( 'BBP_Admin', 'map_settings_meta_caps' );
+
+		bbp_set_user_role( $admin_id, bbp_get_keymaster_role() );
+
+		if ( ! function_exists( 'bbp_admin' ) ) {
+			require_once BBP_PLUGIN_DIR . 'includes/admin/actions.php';
+		}
+
+		bbp_admin();
+
+		try {
+			add_filter( 'bbp_map_meta_caps', $cap_filter, 10, 4 );
+			add_filter( 'wp_redirect', $interrupt );
+
+			$this->set_current_user( $admin_id );
+			delete_user_option( $admin_id, '_bbp_activation_redirect' );
+			bbp_do_activation_redirect();
+			$this->assertNull( $redirect );
+
+			update_user_option( $admin_id, '_bbp_activation_redirect', true );
+			$_GET['activate-multi'] = '1';
+			bbp_do_activation_redirect();
+			$this->assertNull( $redirect );
+			$this->assertFalse( (bool) get_user_option( '_bbp_activation_redirect', $admin_id ) );
+			unset( $_GET['activate-multi'] );
+
+			$GLOBALS['current_screen'] = WP_Screen::get( 'dashboard-network' );
+			update_user_option( $admin_id, '_bbp_activation_redirect', true );
+			bbp_do_activation_redirect();
+			$this->assertNull( $redirect );
+			$this->assertFalse( (bool) get_user_option( '_bbp_activation_redirect', $admin_id ) );
+			$GLOBALS['current_screen'] = $old_screen;
+
+			$this->set_current_user( $subscriber_id );
+			update_user_option( $subscriber_id, '_bbp_activation_redirect', true );
+			$this->assertFalse( current_user_can( 'bbp_about_page' ) );
+			bbp_do_activation_redirect();
+			$this->assertNull( $redirect );
+			$this->assertFalse( (bool) get_user_option( '_bbp_activation_redirect', $subscriber_id ) );
+
+			$this->set_current_user( $admin_id );
+			$this->assertTrue( current_user_can( 'bbp_about_page' ) );
+			update_user_option( $admin_id, '_bbp_activation_redirect', true );
+
+			try {
+				bbp_do_activation_redirect();
+				$this->fail( 'The activation redirect was not attempted.' );
+			} catch ( RuntimeException $exception ) {
+				$this->assertSame( 'Activation redirect.', $exception->getMessage() );
+			}
+
+			$this->assertSame(
+				add_query_arg( array( 'page' => 'bbp-about' ), admin_url( 'index.php' ) ),
+				$redirect
+			);
+			$this->assertFalse( (bool) get_user_option( '_bbp_activation_redirect', $admin_id ) );
+		} finally {
+			remove_filter( 'bbp_map_meta_caps', $cap_filter, 10 );
+			remove_filter( 'wp_redirect', $interrupt );
+			$GLOBALS['current_screen'] = $old_screen;
+			$_GET                      = $old_get;
+			$this->set_current_user( $old_user );
+		}
+	}
+
+	/**
 	 * @covers ::bbp_make_current_user_keymaster
 	 */
 	public function test_bbp_make_current_user_keymaster() {
