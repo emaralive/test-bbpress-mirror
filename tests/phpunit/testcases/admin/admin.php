@@ -279,6 +279,199 @@ class BBP_Tests_Admin_Admin extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers BBP_Admin::admin_menus
+	 * @covers BBP_Admin::admin_head
+	 * @ticket 3706
+	 */
+	public function test_admin_menus_register_and_hide_grouped_pages() {
+		$globals = array( 'submenu', 'admin_page_hooks', '_registered_pages', '_parent_pages' );
+		$before  = array();
+		foreach ( $globals as $global ) {
+			$before[ $global ] = array_key_exists( $global, $GLOBALS )
+				? $GLOBALS[ $global ]
+				: null;
+		}
+		$GLOBALS['submenu'] = array();
+
+		try {
+			delete_option( '_bbp_db_pending_upgrades' );
+			$this->create_administrator();
+			bbp_admin()->admin_menus();
+			$tools = wp_list_pluck( $GLOBALS['submenu']['tools.php'], 2 );
+			$this->assertSame( 2, array_count_values( $tools )['bbp-repair'] );
+			$this->assertContains( 'bbp-upgrade', $tools );
+			$this->assertContains( 'bbp-converter', $tools );
+			$this->assertContains( 'bbp-reset', $tools );
+			$this->assertContains( 'bbpress', wp_list_pluck( $GLOBALS['submenu']['options-general.php'], 2 ) );
+			$this->assertContains( 'bbp-about', wp_list_pluck( $GLOBALS['submenu']['index.php'], 2 ) );
+			$this->assertContains( 'bbp-credits', wp_list_pluck( $GLOBALS['submenu']['index.php'], 2 ) );
+			$upgrade_hook = get_plugin_page_hookname( 'bbp-upgrade', 'tools.php' );
+			$this->assertSame( 10, has_action( 'admin_head-' . $upgrade_hook, 'bbp_tools_modify_menu_highlight' ) );
+
+			bbp_admin()->admin_head();
+			$tools = wp_list_pluck( $GLOBALS['submenu']['tools.php'], 2 );
+			$this->assertSame( 1, array_count_values( $tools )['bbp-repair'] );
+			$repair = wp_list_filter( $GLOBALS['submenu']['tools.php'], array( 2 => 'bbp-repair' ) );
+			$this->assertSame( 'Forums', reset( $repair )[0] );
+			$this->assertNotContains( 'bbp-upgrade', $tools );
+			$this->assertNotContains( 'bbp-converter', $tools );
+			$this->assertNotContains( 'bbp-reset', $tools );
+			$this->assertNotContains( 'bbp-about', wp_list_pluck( $GLOBALS['submenu']['index.php'], 2 ) );
+			$this->assertNotContains( 'bbp-credits', wp_list_pluck( $GLOBALS['submenu']['index.php'], 2 ) );
+		} finally {
+			foreach ( $globals as $global ) {
+				if ( is_null( $before[ $global ] ) ) {
+					unset( $GLOBALS[ $global ] );
+				} else {
+					$GLOBALS[ $global ] = $before[ $global ];
+				}
+			}
+		}
+	}
+
+	/**
+	 * @covers BBP_Admin::network_admin_menus
+	 * @ticket 3706
+	 */
+	public function test_network_admin_menu_requires_network_activation() {
+		$globals = array( 'submenu', 'admin_page_hooks', '_registered_pages', '_parent_pages' );
+		$before  = array();
+		$active  = is_multisite() ? get_site_option( 'active_sitewide_plugins', array() ) : array();
+		$user_id = $this->create_administrator();
+		foreach ( $globals as $global ) {
+			$before[ $global ] = isset( $GLOBALS[ $global ] ) ? $GLOBALS[ $global ] : null;
+		}
+
+		try {
+			$GLOBALS['submenu'] = array();
+			if ( is_multisite() ) {
+				$inactive = $active;
+				unset( $inactive[ bbpress()->basename ] );
+				update_site_option( 'active_sitewide_plugins', $inactive );
+			}
+			bbp_admin()->network_admin_menus();
+			$this->assertArrayNotHasKey( 'upgrade.php', $GLOBALS['submenu'] );
+
+			if ( is_multisite() ) {
+				update_site_option( 'active_sitewide_plugins', array( bbpress()->basename => time() ) );
+				bbp_admin()->network_admin_menus();
+				$this->assertArrayNotHasKey( 'upgrade.php', $GLOBALS['submenu'] );
+
+				$this->grant_super_admin( $user_id );
+				bbp_admin()->network_admin_menus();
+				$this->assertContains( 'bbpress-update', wp_list_pluck( $GLOBALS['submenu']['upgrade.php'], 2 ) );
+				bbp_admin()->admin_menus();
+				$this->assertContains( 'bbp-update', wp_list_pluck( $GLOBALS['submenu']['index.php'], 2 ) );
+			}
+		} finally {
+			if ( is_multisite() ) {
+				$this->restore_admins();
+				update_site_option( 'active_sitewide_plugins', $active );
+			}
+			foreach ( $globals as $global ) {
+				if ( is_null( $before[ $global ] ) ) {
+					unset( $GLOBALS[ $global ] );
+				} else {
+					$GLOBALS[ $global ] = $before[ $global ];
+				}
+			}
+		}
+	}
+
+	/**
+	 * @covers BBP_Admin::register_admin_settings
+	 * @ticket 3706
+	 */
+	public function test_admin_settings_register_only_for_capable_users() {
+		$globals = array( 'wp_settings_sections', 'wp_settings_fields', 'wp_registered_settings', 'new_allowed_options', 'new_whitelist_options' );
+		$before  = array();
+		foreach ( $globals as $global ) {
+			$before[ $global ]  = isset( $GLOBALS[ $global ] ) ? $GLOBALS[ $global ] : null;
+			$GLOBALS[ $global ] = array();
+		}
+
+		try {
+			$this->set_current_user( $this->factory->user->create( array( 'role' => 'subscriber' ) ) );
+			BBP_Admin::register_admin_settings();
+			$this->assertSame( array(), $GLOBALS['wp_settings_sections'] );
+			$this->assertSame( array(), $GLOBALS['wp_settings_fields'] );
+			$this->assertSame( array(), $GLOBALS['new_allowed_options'] );
+
+			foreach ( $globals as $global ) {
+				$GLOBALS[ $global ] = array();
+			}
+			$user = get_userdata( $this->factory->user->create( array( 'role' => 'subscriber' ) ) );
+			$user->add_cap( bbp_admin()->minimum_capability );
+			$this->set_current_user( $user->ID );
+			BBP_Admin::register_admin_settings();
+			$this->assertArrayHasKey( 'bbp_settings_features', $GLOBALS['wp_settings_sections']['bbpress'] );
+			$this->assertArrayNotHasKey( '_bbp_allow_super_mods', $GLOBALS['wp_settings_fields']['bbpress']['bbp_settings_features'] );
+			$this->assertNotContains( '_bbp_allow_super_mods', $GLOBALS['new_allowed_options']['bbpress'] );
+
+			foreach ( $globals as $global ) {
+				$GLOBALS[ $global ] = array();
+			}
+			$this->create_administrator();
+			BBP_Admin::register_admin_settings();
+			$this->assertArrayHasKey( 'bbp_settings_status', $GLOBALS['wp_settings_sections']['bbpress'] );
+			$this->assertArrayHasKey( '_bbp_forums_status', $GLOBALS['wp_settings_fields']['bbpress']['bbp_settings_status'] );
+			$this->assertContains( '_bbp_forums_status', $GLOBALS['new_allowed_options']['bbpress'] );
+			$this->assertArrayHasKey( 'bbp_converter_connection', $GLOBALS['wp_settings_sections']['converter'] );
+		} finally {
+			foreach ( $globals as $global ) {
+				if ( is_null( $before[ $global ] ) ) {
+					unset( $GLOBALS[ $global ] );
+				} else {
+					$GLOBALS[ $global ] = $before[ $global ];
+				}
+			}
+		}
+	}
+
+	/**
+	 * @covers BBP_Admin::register_admin_settings
+	 * @ticket 3706
+	 */
+	public function test_admin_settings_handle_empty_sections_and_deep_integration() {
+		$globals = array( 'wp_settings_sections', 'wp_settings_fields', 'wp_registered_settings', 'new_allowed_options', 'new_whitelist_options' );
+		$before  = array();
+		foreach ( $globals as $global ) {
+			$before[ $global ]  = isset( $GLOBALS[ $global ] ) ? $GLOBALS[ $global ] : null;
+			$GLOBALS[ $global ] = array();
+		}
+		$empty = function () {
+			return array();
+		};
+		$deep = function () {
+			return 'deep';
+		};
+
+		try {
+			add_filter( 'bbp_admin_get_settings_sections', $empty );
+			$this->assertFalse( BBP_Admin::register_admin_settings() );
+			remove_filter( 'bbp_admin_get_settings_sections', $empty );
+
+			$this->create_administrator();
+			add_filter( 'bbp_settings_integration', $deep );
+			BBP_Admin::register_admin_settings();
+			$this->assertArrayHasKey( 'bbp_settings_status', $GLOBALS['wp_settings_sections']['discussion'] );
+			$this->assertArrayHasKey( 'bbp_settings_per_page', $GLOBALS['wp_settings_sections']['reading'] );
+			$this->assertArrayHasKey( 'bbp_settings_root_slugs', $GLOBALS['wp_settings_sections']['permalink'] );
+			$this->assertArrayHasKey( 'bbp_converter_connection', $GLOBALS['wp_settings_sections']['converter'] );
+		} finally {
+			remove_filter( 'bbp_admin_get_settings_sections', $empty );
+			remove_filter( 'bbp_settings_integration', $deep );
+			foreach ( $globals as $global ) {
+				if ( is_null( $before[ $global ] ) ) {
+					unset( $GLOBALS[ $global ] );
+				} else {
+					$GLOBALS[ $global ] = $before[ $global ];
+				}
+			}
+		}
+	}
+
+	/**
 	 * @covers BBP_Admin::modify_plugin_action_links
 	 * @covers BBP_Admin::option_page_capability_bbpress
 	 * @ticket 3706
@@ -502,6 +695,76 @@ class BBP_Tests_Admin_Admin extends BBP_UnitTestCase {
 			remove_filter( 'wp_doing_ajax', '__return_true' );
 			remove_filter( 'wp_die_handler', $handler );
 			remove_filter( 'wp_die_ajax_handler', $handler );
+		}
+	}
+
+	/**
+	 * @covers BBP_Admin::update_screen
+	 * @covers BBP_Admin::network_update_screen
+	 * @ticket 3706
+	 */
+	public function test_update_screens_render_actions_and_reject_invalid_nonces() {
+		$_GET    = array();
+		$site    = $this->capture( array( 'BBP_Admin', 'update_screen' ) );
+		$network = $this->capture( array( 'BBP_Admin', 'network_update_screen' ) );
+		$this->assertStringContainsString( 'action=bbp-update', $site );
+		$this->assertStringContainsString( 'action=bbpress-update', $network );
+		$this->assertSame( 1, preg_match( '/_wpnonce=([a-z0-9]+)/', $site, $site_nonce ) );
+		$this->assertSame( 1, wp_verify_nonce( $site_nonce[1], 'bbp-update' ) );
+		$this->assertSame( 1, preg_match( '/_wpnonce=([a-z0-9]+)/', $network, $network_nonce ) );
+		$this->assertSame( 1, wp_verify_nonce( $network_nonce[1], 'bbpress-update' ) );
+
+		$_GET = array(
+			'action'   => 'bbp-update',
+			'_wpnonce' => 'invalid',
+		);
+		$_REQUEST = $_GET;
+		$this->assert_wp_die(
+			function () {
+				$this->capture( array( 'BBP_Admin', 'update_screen' ) );
+			},
+			'The link you followed has expired.'
+		);
+
+		$_GET = array(
+			'action'   => 'bbpress-update',
+			'_wpnonce' => 'invalid',
+		);
+		$_REQUEST = $_GET;
+		$this->assert_wp_die(
+			function () {
+				$this->capture( array( 'BBP_Admin', 'network_update_screen' ) );
+			},
+			'The link you followed has expired.'
+		);
+
+		$db_version   = get_option( '_bbp_db_version', false );
+		$rewrite_rules = get_option( 'rewrite_rules', false );
+		try {
+			update_option( '_bbp_db_version', bbp_get_db_version() );
+			$_GET = array(
+				'action'   => 'bbp-update',
+				'_wpnonce' => wp_create_nonce( 'bbp-update' ),
+			);
+			$_REQUEST = $_GET;
+			$this->assertStringContainsString( 'All done!', $this->capture( array( 'BBP_Admin', 'update_screen' ) ) );
+
+			if ( is_multisite() ) {
+				$_GET = array(
+					'action'   => 'bbpress-update',
+					'n'        => PHP_INT_MAX,
+					'_wpnonce' => wp_create_nonce( 'bbpress-update' ),
+				);
+				$_REQUEST = $_GET;
+				$this->assertStringContainsString( 'All done!', $this->capture( array( 'BBP_Admin', 'network_update_screen' ) ) );
+			}
+		} finally {
+			false === $db_version
+				? delete_option( '_bbp_db_version' )
+				: update_option( '_bbp_db_version', $db_version );
+			false === $rewrite_rules
+				? delete_option( 'rewrite_rules' )
+				: update_option( 'rewrite_rules', $rewrite_rules );
 		}
 	}
 
