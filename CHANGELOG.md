@@ -47,6 +47,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Used locale-aware plural forms for grouped BuddyPress reply notifications.
 - Sent deferred subscription notifications when moderated topics and replies
   first become public.
 - Restored super moderator forum-role management for network users before their
