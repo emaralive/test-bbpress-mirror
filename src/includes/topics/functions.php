@@ -2994,6 +2994,7 @@ function bbp_update_topic_revision_log( $args = array() ) {
  * @return mixed False or {@link WP_Error} on failure, topic id on success.
  */
 function bbp_close_topic( $topic_id = 0 ) {
+	$revisions_removed = false;
 
 	// Get topic
 	$topic = bbp_get_topic( $topic_id );
@@ -3054,6 +3055,7 @@ function bbp_close_topic( $topic_id = 0 ) {
  * @return mixed False or {@link WP_Error} on failure, topic id on success.
  */
 function bbp_open_topic( $topic_id = 0 ) {
+	$revisions_removed = false;
 
 	// Get topic
 	$topic = bbp_get_topic( $topic_id );
