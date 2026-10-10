@@ -846,9 +846,11 @@ abstract class BBP_Converter_Base {
 					FROM {$this->sync_table_name} AS sync_table1
 						INNER JOIN {$this->sync_table_name} AS sync_table2
 						ON ( sync_table1.value_id = sync_table2.value_id )
-					WHERE sync_table1.meta_value = %s
+					WHERE sync_table1.meta_key = %s
+						AND sync_table1.meta_value = %s
 						AND sync_table2.meta_key = %s
 					LIMIT {$start}, {$this->max_rows}",
+				'_bbp_old_is_topic_anonymous_id',
 				'true',
 				'_bbp_old_topic_author_name_id'
 			);
@@ -857,9 +859,11 @@ abstract class BBP_Converter_Base {
 					FROM {$this->wpdb->postmeta} AS wp_postmeta1
 						INNER JOIN {$this->wpdb->postmeta} AS wp_postmeta2
 						ON ( wp_postmeta1.post_id = wp_postmeta2.post_id )
-					WHERE wp_postmeta1.meta_value = %s
+					WHERE wp_postmeta1.meta_key = %s
+						AND wp_postmeta1.meta_value = %s
 						AND wp_postmeta2.meta_key = %s
 					LIMIT {$start}, {$this->max_rows}",
+				'_bbp_old_is_topic_anonymous_id',
 				'true',
 				'_bbp_old_topic_author_name_id'
 			);
@@ -891,9 +895,11 @@ abstract class BBP_Converter_Base {
 					FROM {$this->sync_table_name} AS sync_table1
 						INNER JOIN {$this->sync_table_name} AS sync_table2
 						ON ( sync_table1.value_id = sync_table2.value_id )
-					WHERE sync_table1.meta_value = %s
+					WHERE sync_table1.meta_key = %s
+						AND sync_table1.meta_value = %s
 						AND sync_table2.meta_key = %s
 					LIMIT {$start}, {$this->max_rows}",
+				'_bbp_old_is_reply_anonymous_id',
 				'true',
 				'_bbp_old_reply_author_name_id'
 			);
@@ -902,9 +908,11 @@ abstract class BBP_Converter_Base {
 					FROM {$this->wpdb->postmeta} AS wp_postmeta1
 						INNER JOIN {$this->wpdb->postmeta} AS wp_postmeta2
 						ON ( wp_postmeta1.post_id = wp_postmeta2.post_id )
-					WHERE wp_postmeta1.meta_value = %s
+					WHERE wp_postmeta1.meta_key = %s
+						AND wp_postmeta1.meta_value = %s
 						AND wp_postmeta2.meta_key = %s
 					LIMIT {$start}, {$this->max_rows}",
+				'_bbp_old_is_reply_anonymous_id',
 				'true',
 				'_bbp_old_reply_author_name_id'
 			);

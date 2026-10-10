@@ -156,6 +156,37 @@ class BBP_Tests_Admin_Converters_Base_Source_Database {
  * @group converters
  */
 class BBP_Tests_Admin_Converters_Base extends BBP_UnitTestCase {
+	protected static $anonymous_sync_table;
+
+	public static function setUpBeforeClass(): void {
+		parent::setUpBeforeClass();
+
+		global $wpdb;
+
+		self::$anonymous_sync_table = $wpdb->prefix . 'bbp_converter_anonymous_authors_test';
+		$charset_collate            = $wpdb->get_charset_collate();
+
+		$wpdb->query( "DROP TABLE IF EXISTS " . self::$anonymous_sync_table ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$wpdb->query( "CREATE TABLE " . self::$anonymous_sync_table . " (
+			meta_id mediumint(8) unsigned NOT NULL AUTO_INCREMENT,
+			value_type varchar(25) NULL,
+			value_id bigint(20) unsigned NOT NULL DEFAULT '0',
+			meta_key varchar(75) NULL,
+			meta_value varchar(75) NULL,
+			PRIMARY KEY (meta_id),
+			KEY value_id (value_id),
+			KEY meta_join (meta_key(75), meta_value(75))
+		) {$charset_collate}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	public static function tearDownAfterClass(): void {
+		global $wpdb;
+
+		$wpdb->query( "DROP TABLE IF EXISTS " . self::$anonymous_sync_table ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+
+		parent::tearDownAfterClass();
+	}
+
 	/**
 	 * @covers BBP_Converter_DB::__construct
 	 * @ticket 3706
@@ -799,5 +830,117 @@ class BBP_Tests_Admin_Converters_Base extends BBP_UnitTestCase {
 		$this->assertFalse( $converter->get_pass_array( serialize( $object_metadata ) ) );
 		$this->assertFalse( $converter->get_pass_array( 'a:1:{s:4:"enum";E:3:"T:A";}' ) );
 		$this->assertFalse( BBP_Tests_Admin_Converters_Unserialize_Wakeup::$woke );
+	}
+
+	/**
+	 * @covers BBP_Converter_Base::convert_anonymous_topic_authors
+	 * @ticket BBP3728
+	 */
+	public function test_anonymous_topic_conversion_requires_the_anonymous_marker() {
+		$user_id             = $this->factory->user->create();
+		$registered_topic_id = $this->factory->topic->create( array( 'post_author' => $user_id ) );
+		$anonymous_topic_id  = $this->factory->topic->create( array( 'post_author' => $user_id ) );
+
+		add_post_meta( $registered_topic_id, '_bbp_old_is_topic_anonymous_id', 'false' );
+		add_post_meta( $registered_topic_id, '_bbp_old_topic_author_name_id', 'Registered Author' );
+		add_post_meta( $registered_topic_id, '_bbp_unrelated_import_flag', 'true' );
+		add_post_meta( $anonymous_topic_id, '_bbp_old_is_topic_anonymous_id', 'true' );
+		add_post_meta( $anonymous_topic_id, '_bbp_old_topic_author_name_id', 'Anonymous Author' );
+
+		$converter = new BBP_Tests_Admin_Converters_Base_Converter();
+		$converter->sync_table = false;
+		$this->assertFalse( $converter->convert_anonymous_topic_authors( 0 ) );
+		clean_post_cache( $registered_topic_id );
+		clean_post_cache( $anonymous_topic_id );
+		$this->assertSame( $user_id, (int) get_post_field( 'post_author', $registered_topic_id ) );
+		$this->assertSame( '', get_post_meta( $registered_topic_id, '_bbp_anonymous_name', true ) );
+		$this->assertSame( 0, (int) get_post_field( 'post_author', $anonymous_topic_id ) );
+		$this->assertSame( 'Anonymous Author', get_post_meta( $anonymous_topic_id, '_bbp_anonymous_name', true ) );
+	}
+
+	/**
+	 * @covers BBP_Converter_Base::convert_anonymous_reply_authors
+	 * @ticket BBP3728
+	 */
+	public function test_anonymous_reply_conversion_requires_the_anonymous_marker() {
+		$user_id             = $this->factory->user->create();
+		$forum_id            = $this->factory->forum->create();
+		$topic_id            = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$registered_reply_id = $this->factory->reply->create( array( 'post_author' => $user_id, 'post_parent' => $topic_id ) );
+		$anonymous_reply_id  = $this->factory->reply->create( array( 'post_author' => $user_id, 'post_parent' => $topic_id ) );
+
+		add_post_meta( $registered_reply_id, '_bbp_old_is_reply_anonymous_id', 'false' );
+		add_post_meta( $registered_reply_id, '_bbp_old_reply_author_name_id', 'Registered Author' );
+		add_post_meta( $registered_reply_id, '_bbp_unrelated_import_flag', 'true' );
+		add_post_meta( $anonymous_reply_id, '_bbp_old_is_reply_anonymous_id', 'true' );
+		add_post_meta( $anonymous_reply_id, '_bbp_old_reply_author_name_id', 'Anonymous Author' );
+
+		$converter = new BBP_Tests_Admin_Converters_Base_Converter();
+		$converter->sync_table = false;
+		$this->assertFalse( $converter->convert_anonymous_reply_authors( 0 ) );
+		clean_post_cache( $registered_reply_id );
+		clean_post_cache( $anonymous_reply_id );
+		$this->assertSame( $user_id, (int) get_post_field( 'post_author', $registered_reply_id ) );
+		$this->assertSame( '', get_post_meta( $registered_reply_id, '_bbp_anonymous_name', true ) );
+		$this->assertSame( 0, (int) get_post_field( 'post_author', $anonymous_reply_id ) );
+		$this->assertSame( 'Anonymous Author', get_post_meta( $anonymous_reply_id, '_bbp_anonymous_name', true ) );
+	}
+
+	/**
+	 * @covers BBP_Converter_Base::convert_anonymous_topic_authors
+	 * @covers BBP_Converter_Base::convert_anonymous_reply_authors
+	 * @ticket BBP3728
+	 */
+	public function test_anonymous_author_conversion_filters_sync_table_markers() {
+		global $wpdb;
+
+		$user_id             = $this->factory->user->create();
+		$registered_topic_id = $this->factory->topic->create( array( 'post_author' => $user_id ) );
+		$anonymous_topic_id  = $this->factory->topic->create( array( 'post_author' => $user_id ) );
+		$forum_id            = $this->factory->forum->create();
+		$topic_id            = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$registered_reply_id = $this->factory->reply->create( array( 'post_author' => $user_id, 'post_parent' => $topic_id ) );
+		$anonymous_reply_id  = $this->factory->reply->create( array( 'post_author' => $user_id, 'post_parent' => $topic_id ) );
+		$rows = array(
+			array( $registered_topic_id, '_bbp_old_is_topic_anonymous_id', 'false' ),
+			array( $registered_topic_id, '_bbp_old_topic_author_name_id', 'Registered Topic Author' ),
+			array( $registered_topic_id, '_bbp_unrelated_import_flag', 'true' ),
+			array( $anonymous_topic_id, '_bbp_old_is_topic_anonymous_id', 'true' ),
+			array( $anonymous_topic_id, '_bbp_old_topic_author_name_id', 'Anonymous Topic Author' ),
+			array( $registered_reply_id, '_bbp_old_is_reply_anonymous_id', 'false' ),
+			array( $registered_reply_id, '_bbp_old_reply_author_name_id', 'Registered Reply Author' ),
+			array( $registered_reply_id, '_bbp_unrelated_import_flag', 'true' ),
+			array( $anonymous_reply_id, '_bbp_old_is_reply_anonymous_id', 'true' ),
+			array( $anonymous_reply_id, '_bbp_old_reply_author_name_id', 'Anonymous Reply Author' ),
+		);
+		foreach ( $rows as $row ) {
+			$wpdb->insert(
+				self::$anonymous_sync_table,
+				array(
+					'value_id'   => $row[0],
+					'meta_key'   => $row[1],
+					'meta_value' => $row[2],
+				)
+			);
+		}
+
+		$converter                  = new BBP_Tests_Admin_Converters_Base_Converter();
+		$converter->sync_table      = true;
+		$converter->sync_table_name = self::$anonymous_sync_table;
+
+		$this->assertFalse( $converter->convert_anonymous_topic_authors( 0 ) );
+		$this->assertFalse( $converter->convert_anonymous_reply_authors( 0 ) );
+		foreach ( array( $registered_topic_id, $anonymous_topic_id, $registered_reply_id, $anonymous_reply_id ) as $post_id ) {
+			clean_post_cache( $post_id );
+		}
+
+		$this->assertSame( $user_id, (int) get_post_field( 'post_author', $registered_topic_id ) );
+		$this->assertSame( '', get_post_meta( $registered_topic_id, '_bbp_anonymous_name', true ) );
+		$this->assertSame( 0, (int) get_post_field( 'post_author', $anonymous_topic_id ) );
+		$this->assertSame( 'Anonymous Topic Author', get_post_meta( $anonymous_topic_id, '_bbp_anonymous_name', true ) );
+		$this->assertSame( $user_id, (int) get_post_field( 'post_author', $registered_reply_id ) );
+		$this->assertSame( '', get_post_meta( $registered_reply_id, '_bbp_anonymous_name', true ) );
+		$this->assertSame( 0, (int) get_post_field( 'post_author', $anonymous_reply_id ) );
+		$this->assertSame( 'Anonymous Reply Author', get_post_meta( $anonymous_reply_id, '_bbp_anonymous_name', true ) );
 	}
 }
