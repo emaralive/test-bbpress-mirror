@@ -2252,35 +2252,35 @@ function bbp_get_single_forum_description( $args = array() ) {
 		// Has replies
 		if ( ! empty( $reply_count ) ) {
 			$retstr = bbp_is_forum_category( $forum_id )
-				/* translators: 1: Topics link, 2: Replies text, 3: Last update time, 4: Author link */
-				? sprintf( esc_html__( 'This category has %1$s, %2$s, and was last updated %3$s by %4$s.', 'bbpress' ), $topic_text, $reply_text, $time_since, $last_updated_by )
-				/* translators: 1: Topics link, 2: Replies text, 3: Last update time, 4: Author link */
-				: sprintf( esc_html__( 'This forum has %1$s, %2$s, and was last updated %3$s by %4$s.',    'bbpress' ), $topic_text, $reply_text, $time_since, $last_updated_by );
+				/* translators: Plural form is selected by topic count. 1: Topics link, 2: Replies text, 3: Last update time, 4: Author link */
+				? sprintf( esc_html( _n( 'This category has %1$s, %2$s, and was last updated %3$s by %4$s.', 'This category has %1$s, %2$s, and was last updated %3$s by %4$s.', $tc_int, 'bbpress' ) ), $topic_text, $reply_text, $time_since, $last_updated_by )
+				/* translators: Plural form is selected by topic count. 1: Topics link, 2: Replies text, 3: Last update time, 4: Author link */
+				: sprintf( esc_html( _n( 'This forum has %1$s, %2$s, and was last updated %3$s by %4$s.', 'This forum has %1$s, %2$s, and was last updated %3$s by %4$s.', $tc_int, 'bbpress' ) ), $topic_text, $reply_text, $time_since, $last_updated_by );
 
 		// Only has topics
 		} else {
 			$retstr = bbp_is_forum_category( $forum_id )
-				/* translators: 1: Topics link, 2: Last update time, 3: Author link */
-				? sprintf( esc_html__( 'This category has %1$s, and was last updated %2$s by %3$s.', 'bbpress' ), $topic_text, $time_since, $last_updated_by )
-				/* translators: 1: Topics link, 2: Last update time, 3: Author link */
-				: sprintf( esc_html__( 'This forum has %1$s, and was last updated %2$s by %3$s.',    'bbpress' ), $topic_text, $time_since, $last_updated_by );
+				/* translators: Plural form is selected by topic count. 1: Topics link, 2: Last update time, 3: Author link */
+				? sprintf( esc_html( _n( 'This category has %1$s, and was last updated %2$s by %3$s.', 'This category has %1$s, and was last updated %2$s by %3$s.', $tc_int, 'bbpress' ) ), $topic_text, $time_since, $last_updated_by )
+				/* translators: Plural form is selected by topic count. 1: Topics link, 2: Last update time, 3: Author link */
+				: sprintf( esc_html( _n( 'This forum has %1$s, and was last updated %2$s by %3$s.', 'This forum has %1$s, and was last updated %2$s by %3$s.', $tc_int, 'bbpress' ) ), $topic_text, $time_since, $last_updated_by );
 		}
 
 	// Forum has no last active data (but does have topics & replies)
 	} elseif ( ! empty( $reply_count ) ) {
 		$retstr = bbp_is_forum_category( $forum_id )
-			/* translators: 1: Topics link, 2: Replies text */
-			? sprintf( esc_html__( 'This category has %1$s and %2$s.', 'bbpress' ), $topic_text, $reply_text )
-			/* translators: 1: Topics link, 2: Replies text */
-			: sprintf( esc_html__( 'This forum has %1$s and %2$s.',    'bbpress' ), $topic_text, $reply_text );
+			/* translators: Plural form is selected by topic count. 1: Topics link, 2: Replies text */
+			? sprintf( esc_html( _n( 'This category has %1$s and %2$s.', 'This category has %1$s and %2$s.', $tc_int, 'bbpress' ) ), $topic_text, $reply_text )
+			/* translators: Plural form is selected by topic count. 1: Topics link, 2: Replies text */
+			: sprintf( esc_html( _n( 'This forum has %1$s and %2$s.', 'This forum has %1$s and %2$s.', $tc_int, 'bbpress' ) ), $topic_text, $reply_text );
 
 	// Forum has no last active data or replies (but does have topics)
 	} elseif ( ! empty( $topic_count ) ) {
 		$retstr = bbp_is_forum_category( $forum_id )
-			/* translators: 1: Topics link */
-			? sprintf( esc_html__( 'This category has %1$s.', 'bbpress' ), $topic_text )
-			/* translators: 1: Topics link */
-			: sprintf( esc_html__( 'This forum has %1$s.',    'bbpress' ), $topic_text );
+			/* translators: Plural form is selected by topic count. 1: Topics link */
+			? sprintf( esc_html( _n( 'This category has %1$s.', 'This category has %1$s.', $tc_int, 'bbpress' ) ), $topic_text )
+			/* translators: Plural form is selected by topic count. 1: Topics link */
+			: sprintf( esc_html( _n( 'This forum has %1$s.', 'This forum has %1$s.', $tc_int, 'bbpress' ) ), $topic_text );
 
 	// Forum is empty
 	} else {

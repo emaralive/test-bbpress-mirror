@@ -651,4 +651,66 @@ class BBP_Tests_Forums_Template_Forum extends BBP_UnitTestCase {
 		$forum = bbp_get_single_forum_description( $f );
 		$this->assertSame( '<div class="bbp-template-notice info"><ul><li class="bbp-forum-description">This forum is empty.</li></ul></div>', $forum );
 	}
+
+	/**
+	 * @covers ::bbp_get_single_forum_description
+	 */
+	public function test_bbp_get_single_forum_description_uses_topic_count_for_sentence_plural() {
+		$forum_id      = $this->factory->forum->create();
+		$topic_id      = $this->factory->topic->create( array( 'post_parent' => $forum_id ) );
+		$last_active   = $topic_id;
+		$plural_calls  = array();
+		$sentence_args = array(
+			array( false, true,  true,  'This forum has %1$s, %2$s, and was last updated %3$s by %4$s.' ),
+			array( true,  true,  true,  'This category has %1$s, %2$s, and was last updated %3$s by %4$s.' ),
+			array( false, true,  false, 'This forum has %1$s, and was last updated %2$s by %3$s.' ),
+			array( true,  true,  false, 'This category has %1$s, and was last updated %2$s by %3$s.' ),
+			array( false, false, true,  'This forum has %1$s and %2$s.' ),
+			array( true,  false, true,  'This category has %1$s and %2$s.' ),
+			array( false, false, false, 'This forum has %1$s.' ),
+			array( true,  false, false, 'This category has %1$s.' ),
+		);
+		$sentences     = array_column( $sentence_args, 3 );
+		$active_filter = function() use ( &$last_active ) {
+			return $last_active;
+		};
+		$plural_filter = function( $translation, $source_single, $source_plural, $number, $domain ) use ( &$plural_calls, $sentences ) {
+			if ( in_array( $source_single, $sentences, true ) && ( 'bbpress' === $domain ) ) {
+				$plural_calls[] = array( $source_single, $number );
+				$translation    = '<b>Localized form ' . $number . ': ' . $source_single . '</b>';
+			}
+
+			return $translation;
+		};
+
+		add_filter( 'bbp_get_forum_last_active_id', $active_filter );
+		add_filter( 'ngettext', $plural_filter, 10, 5 );
+
+		try {
+			foreach ( $sentence_args as $sentence_arg ) {
+				list( $is_category, $has_activity, $has_replies ) = $sentence_arg;
+
+				$is_category ? bbp_categorize_forum( $forum_id ) : bbp_normalize_forum( $forum_id );
+				$last_active = $has_activity ? $topic_id : 0;
+				update_post_meta( $forum_id, '_bbp_total_reply_count', $has_replies ? 1 : 0 );
+
+				foreach ( array( 1, 2 ) as $topic_count ) {
+					update_post_meta( $forum_id, '_bbp_total_topic_count', $topic_count );
+					$description = bbp_get_single_forum_description( array( 'forum_id' => $forum_id ) );
+					$this->assertStringContainsString( '&lt;b&gt;Localized form ' . $topic_count . ':', $description );
+				}
+			}
+		} finally {
+			remove_filter( 'ngettext', $plural_filter, 10 );
+			remove_filter( 'bbp_get_forum_last_active_id', $active_filter );
+		}
+
+		$expected_calls = array();
+		foreach ( $sentence_args as $sentence_arg ) {
+			$expected_calls[] = array( $sentence_arg[3], 1 );
+			$expected_calls[] = array( $sentence_arg[3], 2 );
+		}
+
+		$this->assertSame( $expected_calls, $plural_calls );
+	}
 }
