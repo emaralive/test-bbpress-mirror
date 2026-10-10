@@ -51,6 +51,7 @@ Development for the next bbPress release is in progress. See the active
 - Imported FluxBB replies without duplicating topic starters and preserved the
   source forum and topic reply counts.
 - Restored favorite and subscription removal from BuddyPress member profiles.
+- Allowed the `bbp_is_topic_merge` filter to override detected merge requests.
 - Restored specific body classes for topic merging and splitting, reply moving,
   current-user profile editing, and forum search results while preserving their
   existing general classes.

@@ -529,9 +529,10 @@ class BBP_Tests_Common_Template extends BBP_UnitTestCase {
 	 * @dataProvider edit_action_predicate_provider
 	 */
 	public function test_edit_action_predicates_require_edit_state_and_matching_action( $function, $edit_property, $action, $other_action, $other_property ) {
-		$wp_query = bbp_get_wp_query();
-		$old_get  = $_GET;
-		$states   = array(
+		$wp_query     = bbp_get_wp_query();
+		$old_get      = $_GET;
+		$filter_added = false;
+		$states       = array(
 			$edit_property  => property_exists( $wp_query, $edit_property ) ? $wp_query->{$edit_property} : null,
 			$other_property => property_exists( $wp_query, $other_property ) ? $wp_query->{$other_property} : null,
 		);
@@ -563,7 +564,14 @@ class BBP_Tests_Common_Template extends BBP_UnitTestCase {
 			$wp_query->{$other_property} = false;
 			$_GET['action'] = $action;
 			$this->assertTrue( call_user_func( $function ) );
+
+			add_filter( $function, '__return_false' );
+			$filter_added = true;
+			$this->assertFalse( call_user_func( $function ) );
 		} finally {
+			if ( $filter_added ) {
+				remove_filter( $function, '__return_false' );
+			}
 			$_GET = $old_get;
 			foreach ( $states as $property => $value ) {
 				if ( $existing[ $property ] ) {

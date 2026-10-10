@@ -324,7 +324,7 @@ function bbp_is_topic_merge() {
 
 	// Check topic edit and GET params
 	if ( bbp_is_topic_edit() && ! empty( $_GET['action'] ) && ( 'merge' === $_GET['action'] ) ) {
-		return true;
+		$retval = true;
 	}
 
 	// Filter & return
