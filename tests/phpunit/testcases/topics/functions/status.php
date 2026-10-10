@@ -76,6 +76,26 @@ class BBP_Tests_Topics_Functions_Status extends BBP_UnitTestCase {
 	}
 
 	/**
+	 * @covers ::bbp_close_topic
+	 * @covers ::bbp_open_topic
+	 * @ticket BBP3583
+	 */
+	public function test_bbp_close_and_open_topic_without_revision_support() {
+		$topic_id = $this->factory->topic->create();
+		$post_type = bbp_get_topic_post_type();
+
+		remove_post_type_support( $post_type, 'revisions' );
+
+		try {
+			$this->assertSame( $topic_id, bbp_close_topic( $topic_id ) );
+			$this->assertSame( $topic_id, bbp_open_topic( $topic_id ) );
+			$this->assertFalse( post_type_supports( $post_type, 'revisions' ) );
+		} finally {
+			add_post_type_support( $post_type, 'revisions' );
+		}
+	}
+
+	/**
 	 * @covers ::bbp_spam_topic
 	 * @covers ::bbp_update_counts_on_transition_post_status
 	 */
