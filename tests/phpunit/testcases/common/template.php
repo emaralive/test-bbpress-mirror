@@ -9,6 +9,33 @@
 class BBP_Tests_Common_Template extends BBP_UnitTestCase {
 
 	/**
+	 * @covers ::bbp_is_topic_merge
+	 */
+	public function test_topic_merge_respects_filter_on_matching_request() {
+		$wp_query  = bbp_get_wp_query();
+		$old_get   = $_GET;
+		$had_state = property_exists( $wp_query, 'bbp_is_topic_edit' );
+		$old_state = $had_state ? $wp_query->bbp_is_topic_edit : null;
+
+		try {
+			$wp_query->bbp_is_topic_edit = true;
+			$_GET['action'] = 'merge';
+			$this->assertTrue( bbp_is_topic_merge() );
+
+			add_filter( 'bbp_is_topic_merge', '__return_false' );
+			$this->assertFalse( bbp_is_topic_merge() );
+		} finally {
+			remove_filter( 'bbp_is_topic_merge', '__return_false' );
+			$_GET = $old_get;
+			if ( $had_state ) {
+				$wp_query->bbp_is_topic_edit = $old_state;
+			} else {
+				unset( $wp_query->bbp_is_topic_edit );
+			}
+		}
+	}
+
+	/**
 	 * @covers ::bbp_body_class
 	 * @dataProvider body_class_specific_state_provider
 	 */
