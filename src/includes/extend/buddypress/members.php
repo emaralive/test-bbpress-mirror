@@ -45,17 +45,38 @@ class BBP_BuddyPress_Members {
 		// Allow unsubscribe/unfavorite links to work
 		add_action( 'bp_template_redirect', array( $this, 'set_member_forum_query_vars' ) );
 
-		/** Favorites *********************************************************/
+		/** Engagements *******************************************************/
 
-		// Move handler to 'bp_actions' - BuddyPress bypasses template_loader
+		// Move handlers to 'bp_actions' - BuddyPress bypasses template_loader
 		remove_action( 'bbp_get_request', 'bbp_favorites_handler', 1 );
-		add_action(    'bp_actions',      'bbp_favorites_handler', 1 );
-
-		/** Subscriptions *****************************************************/
-
-		// Move handler to 'bp_actions' - BuddyPress bypasses template_loader
 		remove_action( 'bbp_get_request', 'bbp_subscriptions_handler', 1 );
-		add_action(    'bp_actions',      'bbp_subscriptions_handler', 1 );
+		add_action(    'bp_actions',      array( $this, 'engagements_handler' ), 1 );
+	}
+
+	/** Actions ***************************************************************/
+
+	/**
+	 * Handle favorites and subscriptions from BuddyPress member pages.
+	 *
+	 * BuddyPress does not pass the requested action to its `bp_actions` hook,
+	 * so get it directly from the request before passing it to the bbPress
+	 * handlers.
+	 *
+	 * @since 2.6.20 (r7933)
+	 */
+	public function engagements_handler() {
+
+		// Bail if no action, or if not a string (arrays not supported)
+		if ( empty( $_GET['action'] ) || ! is_string( $_GET['action'] ) ) {
+			return;
+		}
+
+		// Sanitize the GET action
+		$action = sanitize_key( $_GET['action'] );
+
+		// Pass the action to both handlers, which validate supported actions
+		bbp_favorites_handler( $action );
+		bbp_subscriptions_handler( $action );
 	}
 
 	/**
