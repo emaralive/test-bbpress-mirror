@@ -1394,6 +1394,21 @@ class BBP_Tests_Common_Template extends BBP_UnitTestCase {
 		}
 	}
 
+	/**
+	 * @covers ::bbp_get_view_title
+	 * @ticket BBP3733
+	 */
+	public function test_view_title_returns_false_for_unregistered_view() {
+		bbp_register_view( 'unit-test-view', 'Unit Test View' );
+
+		try {
+			$this->assertSame( 'Unit Test View', bbp_get_view_title( 'unit-test-view' ) );
+			$this->assertFalse( bbp_get_view_title( 'missing-view' ) );
+		} finally {
+			bbp_deregister_view( 'unit-test-view' );
+		}
+	}
+
 	public static function body_class_specific_state_provider() {
 		return array(
 			'topic merge' => array(
