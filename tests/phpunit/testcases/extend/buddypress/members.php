@@ -12,6 +12,10 @@ class BBP_Tests_Extend_BuddyPress_Members extends BBP_UnitTestCase {
 	protected $displayed_user;
 	protected $current_action;
 	protected $members;
+	protected $old_get;
+	protected $old_request;
+	protected $old_server;
+	protected $old_errors;
 
 	public function setUp(): void {
 		parent::setUp();
@@ -21,6 +25,20 @@ class BBP_Tests_Extend_BuddyPress_Members extends BBP_UnitTestCase {
 			: null;
 		$this->current_action = buddypress()->current_action;
 		$this->members        = ( new ReflectionClass( 'BBP_BuddyPress_Members' ) )->newInstanceWithoutConstructor();
+		$this->old_get        = $_GET;
+		$this->old_request    = $_REQUEST;
+		$this->old_server     = $_SERVER;
+		$this->old_errors     = bbpress()->errors;
+		$home_url             = wp_parse_url( home_url( '/' ) );
+
+		bbpress()->errors       = new WP_Error();
+		$_SERVER['HTTP_HOST']   = $home_url['host'];
+		$_SERVER['REQUEST_URI'] = $home_url['path'];
+
+		if ( isset( $home_url['port'] ) ) {
+			$_SERVER['HTTP_HOST']  .= ':' . $home_url['port'];
+			$_SERVER['SERVER_PORT'] = $home_url['port'];
+		}
 	}
 
 	public function tearDown(): void {
@@ -33,6 +51,10 @@ class BBP_Tests_Extend_BuddyPress_Members extends BBP_UnitTestCase {
 		buddypress()->current_action = $this->current_action;
 		$this->clear_user_forum_query_vars();
 		$this->set_permalink_structure();
+		$_GET              = $this->old_get;
+		$_REQUEST          = $this->old_request;
+		$_SERVER           = $this->old_server;
+		bbpress()->errors  = $this->old_errors;
 
 		parent::tearDown();
 	}
@@ -118,6 +140,72 @@ class BBP_Tests_Extend_BuddyPress_Members extends BBP_UnitTestCase {
 		$this->assertFalse( isset( bbp_get_wp_query()->bbp_is_single_user_topics ) );
 	}
 
+	/**
+	 * @covers ::BBP_BuddyPress_Members::setup_actions
+	 */
+	public function test_member_engagement_handler_is_registered_on_buddypress_actions() {
+		$members = bbpress()->extend->buddypress->members;
+
+		$this->assertSame( 1, has_action( 'bp_actions', array( $members, 'engagements_handler' ) ) );
+		$this->assertFalse( has_action( 'bp_actions', 'bbp_favorites_handler' ) );
+		$this->assertFalse( has_action( 'bp_actions', 'bbp_subscriptions_handler' ) );
+	}
+
+	/**
+	 * @covers ::BBP_BuddyPress_Members::engagements_handler
+	 * @covers ::bbp_subscriptions_handler
+	 */
+	public function test_member_subscription_can_be_removed_from_buddypress_profile() {
+		$user_id  = $this->factory->user->create( array( 'role' => bbp_get_participant_role() ) );
+		$forum_id = $this->factory->forum->create();
+
+		$this->set_current_user( $user_id );
+		$this->assertTrue( bbp_add_user_subscription( $user_id, $forum_id ) );
+
+		$_GET['action']        = 'bbp_unsubscribe';
+		$_GET['object_id']     = $forum_id;
+		$_GET['object_type']   = 'post';
+		$_REQUEST['_wpnonce'] = wp_create_nonce( 'toggle-subscription_post_' . $forum_id );
+
+		$this->submit_member_engagement();
+
+		$this->assertFalse( bbp_is_user_subscribed( $user_id, $forum_id ) );
+	}
+
+	/**
+	 * @covers ::BBP_BuddyPress_Members::engagements_handler
+	 * @covers ::bbp_favorites_handler
+	 */
+	public function test_member_favorite_can_be_removed_from_buddypress_profile() {
+		$user_id  = $this->factory->user->create( array( 'role' => bbp_get_participant_role() ) );
+		$forum_id = $this->factory->forum->create();
+		$topic_id = $this->factory->topic->create( array(
+			'post_parent' => $forum_id,
+			'topic_meta'  => array( 'forum_id' => $forum_id ),
+		) );
+
+		$this->set_current_user( $user_id );
+		$this->assertTrue( bbp_add_user_favorite( $user_id, $topic_id ) );
+
+		$_GET['action']        = 'bbp_favorite_remove';
+		$_GET['object_id']     = $topic_id;
+		$_REQUEST['_wpnonce'] = wp_create_nonce( 'toggle-favorite_' . $topic_id );
+
+		$this->submit_member_engagement();
+
+		$this->assertFalse( bbp_is_user_favorite( $user_id, $topic_id ) );
+	}
+
+	/**
+	 * @covers ::BBP_BuddyPress_Members::engagements_handler
+	 */
+	public function test_member_engagement_handler_rejects_array_action() {
+		$_GET['action'] = array( 'bbp_unsubscribe' );
+
+		$this->assertNull( bbpress()->extend->buddypress->members->engagements_handler() );
+		$this->assertFalse( bbp_has_errors() );
+	}
+
 	public function profile_sections() {
 		return array(
 			'topics'        => array( 'bbp_get_topic_archive_slug',       'bbp_is_single_user_topics'      ),
@@ -144,5 +232,26 @@ class BBP_Tests_Extend_BuddyPress_Members extends BBP_UnitTestCase {
 		) as $query_var ) {
 			unset( bbp_get_wp_query()->$query_var );
 		}
+	}
+
+	private function submit_member_engagement() {
+		$redirected        = false;
+		$interrupt_redirect = function() use ( &$redirected ) {
+			$redirected = true;
+			throw new RuntimeException( 'Engagement redirect.' );
+		};
+		add_filter( 'wp_redirect', $interrupt_redirect );
+
+		try {
+			bbpress()->extend->buddypress->members->engagements_handler();
+		} catch ( RuntimeException $exception ) {
+			if ( 'Engagement redirect.' !== $exception->getMessage() ) {
+				throw $exception;
+			}
+		} finally {
+			remove_filter( 'wp_redirect', $interrupt_redirect );
+		}
+
+		$this->assertTrue( $redirected, implode( '; ', bbpress()->errors->get_error_messages() ) );
 	}
 }
