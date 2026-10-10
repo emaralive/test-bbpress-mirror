@@ -260,6 +260,329 @@ class BBP_Tests_Common_Template extends BBP_UnitTestCase {
 		);
 	}
 
+	/**
+	 * @covers ::bbp_is_favorites
+	 * @covers ::bbp_is_subscriptions
+	 * @covers ::bbp_is_topics_created
+	 * @covers ::bbp_is_replies_created
+	 * @covers ::bbp_is_user_home
+	 * @covers ::bbp_is_single_user
+	 * @covers ::bbp_is_single_user_edit
+	 * @covers ::bbp_is_single_user_profile
+	 * @covers ::bbp_is_single_user_topics
+	 * @covers ::bbp_is_single_user_replies
+	 * @covers ::bbp_is_single_user_engagements
+	 * @covers ::bbp_is_single_view
+	 * @covers ::bbp_is_edit
+	 * @covers ::bbp_is_forum_edit
+	 * @covers ::bbp_is_topic_edit
+	 * @covers ::bbp_is_reply_edit
+	 * @dataProvider query_flag_predicate_provider
+	 */
+	public function test_query_flag_predicates_require_strict_true_and_apply_filter( $function, $property ) {
+		$wp_query   = bbp_get_wp_query();
+		$had_value  = property_exists( $wp_query, $property );
+		$old_value  = $had_value ? $wp_query->{$property} : null;
+		$old_name   = bbp_get_query_name();
+		$filter     = function( $retval ) {
+			$this->assertTrue( $retval );
+			return false;
+		};
+		$override   = function( $retval ) {
+			$this->assertFalse( $retval );
+			return true;
+		};
+
+		try {
+			bbp_reset_query_name();
+			unset( $wp_query->{$property} );
+			$this->assertFalse( call_user_func( $function ) );
+
+			$wp_query->{$property} = 1;
+			$this->assertFalse( call_user_func( $function ) );
+
+			$wp_query->{$property} = false;
+			add_filter( $function, $override );
+			$this->assertTrue( call_user_func( $function ) );
+			remove_filter( $function, $override );
+
+			$wp_query->{$property} = true;
+			$this->assertTrue( call_user_func( $function ) );
+
+			add_filter( $function, $filter );
+			$this->assertFalse( call_user_func( $function ) );
+		} finally {
+			remove_filter( $function, $filter );
+			remove_filter( $function, $override );
+			bbp_set_query_name( $old_name );
+			if ( $had_value ) {
+				$wp_query->{$property} = $old_value;
+			} else {
+				unset( $wp_query->{$property} );
+			}
+		}
+	}
+
+	public static function query_flag_predicate_provider() {
+		return array(
+			'favorites'               => array( 'bbp_is_favorites', 'bbp_is_single_user_favs' ),
+			'subscriptions'           => array( 'bbp_is_subscriptions', 'bbp_is_single_user_subs' ),
+			'topics created'          => array( 'bbp_is_topics_created', 'bbp_is_single_user_topics' ),
+			'replies created'         => array( 'bbp_is_replies_created', 'bbp_is_single_user_replies' ),
+			'user home'               => array( 'bbp_is_user_home', 'bbp_is_single_user_home' ),
+			'single user'             => array( 'bbp_is_single_user', 'bbp_is_single_user' ),
+			'single user edit'        => array( 'bbp_is_single_user_edit', 'bbp_is_single_user_edit' ),
+			'single user profile'     => array( 'bbp_is_single_user_profile', 'bbp_is_single_user_profile' ),
+			'single user topics'      => array( 'bbp_is_single_user_topics', 'bbp_is_single_user_topics' ),
+			'single user replies'     => array( 'bbp_is_single_user_replies', 'bbp_is_single_user_replies' ),
+			'single user engagements' => array( 'bbp_is_single_user_engagements', 'bbp_is_single_user_engagements' ),
+			'single view'             => array( 'bbp_is_single_view', 'bbp_is_view' ),
+			'edit'                    => array( 'bbp_is_edit', 'bbp_is_edit' ),
+			'forum edit'              => array( 'bbp_is_forum_edit', 'bbp_is_forum_edit' ),
+			'topic edit'              => array( 'bbp_is_topic_edit', 'bbp_is_topic_edit' ),
+			'reply edit'              => array( 'bbp_is_reply_edit', 'bbp_is_reply_edit' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_get_query_name
+	 * @covers ::bbp_is_query_name
+	 * @covers ::bbp_reset_query_name
+	 * @covers ::bbp_set_query_name
+	 */
+	public function test_query_name_helpers_set_compare_and_reset_value() {
+		$old_name = bbp_get_query_name();
+
+		try {
+			bbp_reset_query_name();
+			$this->assertSame( '', bbp_get_query_name() );
+			$this->assertTrue( bbp_is_query_name() );
+
+			bbp_set_query_name( 'bbp_unit_test' );
+			$this->assertSame( 'bbp_unit_test', bbp_get_query_name() );
+			$this->assertTrue( bbp_is_query_name( 'bbp_unit_test' ) );
+			$this->assertFalse( bbp_is_query_name( 'bbp_other' ) );
+		} finally {
+			bbp_set_query_name( $old_name );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_is_forum_archive
+	 * @covers ::bbp_is_single_forum
+	 * @covers ::bbp_is_single_topic
+	 * @covers ::bbp_is_topic_archive
+	 * @covers ::bbp_is_single_reply
+	 * @covers ::bbp_is_single_view
+	 * @dataProvider query_name_predicate_provider
+	 */
+	public function test_query_name_predicates( $function, $query_name ) {
+		$old_name = bbp_get_query_name();
+
+		try {
+			bbp_reset_query_name();
+			$this->assertFalse( call_user_func( $function ) );
+
+			bbp_set_query_name( $query_name );
+			$this->assertTrue( call_user_func( $function ) );
+		} finally {
+			bbp_set_query_name( $old_name );
+		}
+	}
+
+	public static function query_name_predicate_provider() {
+		return array(
+			'forum archive' => array( 'bbp_is_forum_archive', 'bbp_forum_archive' ),
+			'single forum'  => array( 'bbp_is_single_forum', 'bbp_single_forum' ),
+			'single topic'  => array( 'bbp_is_single_topic', 'bbp_single_topic' ),
+			'topic archive' => array( 'bbp_is_topic_archive', 'bbp_topic_archive' ),
+			'single reply'  => array( 'bbp_is_single_reply', 'bbp_single_reply' ),
+			'single view'   => array( 'bbp_is_single_view', 'bbp_single_view' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_is_single_forum
+	 * @covers ::bbp_is_single_topic
+	 * @covers ::bbp_is_single_reply
+	 * @dataProvider single_predicate_edit_provider
+	 */
+	public function test_single_predicates_exclude_edit_state( $function, $query_name, $edit_property ) {
+		$wp_query  = bbp_get_wp_query();
+		$old_name  = bbp_get_query_name();
+		$had_value = property_exists( $wp_query, $edit_property );
+		$old_value = $had_value ? $wp_query->{$edit_property} : null;
+
+		try {
+			bbp_set_query_name( $query_name );
+			$wp_query->{$edit_property} = true;
+			$this->assertFalse( call_user_func( $function ) );
+		} finally {
+			bbp_set_query_name( $old_name );
+			if ( $had_value ) {
+				$wp_query->{$edit_property} = $old_value;
+			} else {
+				unset( $wp_query->{$edit_property} );
+			}
+		}
+	}
+
+	public static function single_predicate_edit_provider() {
+		return array(
+			'forum' => array( 'bbp_is_single_forum', 'bbp_single_forum', 'bbp_is_forum_edit' ),
+			'topic' => array( 'bbp_is_single_topic', 'bbp_single_topic', 'bbp_is_topic_edit' ),
+			'reply' => array( 'bbp_is_single_reply', 'bbp_single_reply', 'bbp_is_reply_edit' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_is_single_forum
+	 * @covers ::bbp_is_single_topic
+	 * @covers ::bbp_is_single_reply
+	 * @dataProvider singular_predicate_provider
+	 */
+	public function test_single_predicates_exclude_edit_state_for_singular_query( $function, $factory_name, $edit_property ) {
+		$post_id  = $this->create_bbp_post( $factory_name );
+		$wp_query = bbp_get_wp_query();
+		$states   = array(
+			'is_singular'       => $wp_query->is_singular,
+			'queried_object'    => property_exists( $wp_query, 'queried_object' ) ? $wp_query->queried_object : null,
+			'queried_object_id' => property_exists( $wp_query, 'queried_object_id' ) ? $wp_query->queried_object_id : null,
+			$edit_property      => property_exists( $wp_query, $edit_property ) ? $wp_query->{$edit_property} : null,
+		);
+		$existing = array(
+			'queried_object'    => property_exists( $wp_query, 'queried_object' ),
+			'queried_object_id' => property_exists( $wp_query, 'queried_object_id' ),
+			$edit_property      => property_exists( $wp_query, $edit_property ),
+		);
+
+		try {
+			$wp_query->is_singular       = true;
+			$wp_query->queried_object    = get_post( $post_id );
+			$wp_query->queried_object_id = $post_id;
+			$wp_query->{$edit_property}  = false;
+			$this->assertTrue( call_user_func( $function ) );
+
+			$wp_query->{$edit_property} = true;
+			$this->assertFalse( call_user_func( $function ) );
+		} finally {
+			$wp_query->is_singular = $states['is_singular'];
+			foreach ( $existing as $property => $had_value ) {
+				if ( $had_value ) {
+					$wp_query->{$property} = $states[ $property ];
+				} else {
+					unset( $wp_query->{$property} );
+				}
+			}
+		}
+	}
+
+	public static function singular_predicate_provider() {
+		return array(
+			'forum' => array( 'bbp_is_single_forum', 'forum', 'bbp_is_forum_edit' ),
+			'topic' => array( 'bbp_is_single_topic', 'topic', 'bbp_is_topic_edit' ),
+			'reply' => array( 'bbp_is_single_reply', 'reply', 'bbp_is_reply_edit' ),
+		);
+	}
+
+	/**
+	 * @covers ::bbp_is_user_home_edit
+	 */
+	public function test_user_home_edit_requires_both_query_flags() {
+		$wp_query = bbp_get_wp_query();
+		$states   = array(
+			'bbp_is_single_user_home' => property_exists( $wp_query, 'bbp_is_single_user_home' ) ? $wp_query->bbp_is_single_user_home : null,
+			'bbp_is_single_user_edit' => property_exists( $wp_query, 'bbp_is_single_user_edit' ) ? $wp_query->bbp_is_single_user_edit : null,
+		);
+		$existing = array(
+			'bbp_is_single_user_home' => property_exists( $wp_query, 'bbp_is_single_user_home' ),
+			'bbp_is_single_user_edit' => property_exists( $wp_query, 'bbp_is_single_user_edit' ),
+		);
+
+		try {
+			$wp_query->bbp_is_single_user_home = true;
+			$wp_query->bbp_is_single_user_edit = false;
+			$this->assertFalse( bbp_is_user_home_edit() );
+
+			$wp_query->bbp_is_single_user_home = false;
+			$wp_query->bbp_is_single_user_edit = true;
+			$this->assertFalse( bbp_is_user_home_edit() );
+
+			$wp_query->bbp_is_single_user_home = true;
+			$wp_query->bbp_is_single_user_edit = true;
+			$this->assertTrue( bbp_is_user_home_edit() );
+		} finally {
+			foreach ( $states as $property => $value ) {
+				if ( $existing[ $property ] ) {
+					$wp_query->{$property} = $value;
+				} else {
+					unset( $wp_query->{$property} );
+				}
+			}
+		}
+	}
+
+	/**
+	 * @covers ::bbp_is_topic_merge
+	 * @covers ::bbp_is_topic_split
+	 * @covers ::bbp_is_reply_move
+	 * @dataProvider edit_action_predicate_provider
+	 */
+	public function test_edit_action_predicates_require_edit_state_and_matching_action( $function, $edit_property, $action, $other_action, $other_property ) {
+		$wp_query = bbp_get_wp_query();
+		$old_get  = $_GET;
+		$states   = array(
+			$edit_property  => property_exists( $wp_query, $edit_property ) ? $wp_query->{$edit_property} : null,
+			$other_property => property_exists( $wp_query, $other_property ) ? $wp_query->{$other_property} : null,
+		);
+		$existing = array(
+			$edit_property  => property_exists( $wp_query, $edit_property ),
+			$other_property => property_exists( $wp_query, $other_property ),
+		);
+
+		try {
+			$wp_query->{$edit_property}  = true;
+			$wp_query->{$other_property} = false;
+			unset( $_GET['action'] );
+			$this->assertFalse( call_user_func( $function ) );
+
+			$wp_query->{$edit_property} = false;
+			$_GET['action'] = $action;
+			$this->assertFalse( call_user_func( $function ) );
+
+			$wp_query->{$edit_property} = true;
+			$_GET['action'] = $other_action;
+			$this->assertFalse( call_user_func( $function ) );
+
+			$wp_query->{$edit_property}  = false;
+			$wp_query->{$other_property} = true;
+			$_GET['action']              = $action;
+			$this->assertFalse( call_user_func( $function ) );
+
+			$wp_query->{$edit_property}  = true;
+			$wp_query->{$other_property} = false;
+			$_GET['action'] = $action;
+			$this->assertTrue( call_user_func( $function ) );
+		} finally {
+			$_GET = $old_get;
+			foreach ( $states as $property => $value ) {
+				if ( $existing[ $property ] ) {
+					$wp_query->{$property} = $value;
+				} else {
+					unset( $wp_query->{$property} );
+				}
+			}
+		}
+	}
+
+	public static function edit_action_predicate_provider() {
+		return array(
+			'topic merge' => array( 'bbp_is_topic_merge', 'bbp_is_topic_edit', 'merge', 'split', 'bbp_is_reply_edit' ),
+			'topic split' => array( 'bbp_is_topic_split', 'bbp_is_topic_edit', 'split', 'merge', 'bbp_is_reply_edit' ),
+			'reply move'  => array( 'bbp_is_reply_move', 'bbp_is_reply_edit', 'move', 'merge', 'bbp_is_topic_edit' ),
+		);
+	}
+
 	private function create_bbp_post( $factory_name ) {
 		if ( 'reply' === $factory_name ) {
 			$topic_id = $this->factory->topic->create();
