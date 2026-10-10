@@ -421,13 +421,84 @@ class BBP_Tests_Topics_Template_Topic extends BBP_UnitTestCase {
 	/**
 	 * @covers ::bbp_single_topic_description
 	 * @covers ::bbp_get_single_topic_description
-	 * @todo   Implement test_bbp_get_single_topic_description().
 	 */
 	public function test_bbp_get_single_topic_description() {
-		// Remove the following lines when you implement this test.
-		$this->markTestIncomplete(
-			'This test has not been implemented yet.'
-		);
+		$topic_id    = $this->factory->topic->create();
+		$args        = array( 'topic_id' => $topic_id, 'before' => '<p>', 'after' => '</p>' );
+		$description = bbp_get_single_topic_description( $args );
+
+		$this->assertStringStartsWith( '<p>', $description );
+		$this->assertStringEndsWith( '</p>', $description );
+		$this->assertStringContainsString( 'This topic', $description );
+		$this->expectOutputString( $description );
+		bbp_single_topic_description( $args );
+	}
+
+	/**
+	 * @covers ::bbp_get_single_topic_description
+	 */
+	public function test_bbp_get_single_topic_description_uses_reply_count_for_sentence_plural() {
+		$topic_id     = $this->factory->topic->create();
+		$reply_counts = array();
+		$single       = 'This topic has %1$s, %2$s, and was last updated %3$s by %4$s.';
+		$filter       = function( $translation, $source_single, $source_plural, $number, $domain ) use ( &$reply_counts, $single ) {
+			if ( ( $single === $source_single ) && ( 'bbpress' === $domain ) ) {
+				$reply_counts[] = $number;
+				$translation    = '<b>Localized form ' . $number . ': %1$s, %2$s, %3$s, %4$s.</b>';
+			}
+
+			return $translation;
+		};
+
+		update_post_meta( $topic_id, '_bbp_voice_count', 1 );
+		update_post_meta( $topic_id, '_bbp_last_active_id', $topic_id );
+		add_filter( 'ngettext', $filter, 10, 5 );
+
+		try {
+			foreach ( array( 0, 1, 2 ) as $reply_count ) {
+				update_post_meta( $topic_id, '_bbp_reply_count', $reply_count );
+				$description = bbp_get_single_topic_description( array( 'topic_id' => $topic_id ) );
+				$this->assertStringContainsString( '&lt;b&gt;Localized form ' . $reply_count . ':', $description );
+			}
+		} finally {
+			remove_filter( 'ngettext', $filter, 10 );
+		}
+
+		$this->assertSame( array( 0, 1, 2 ), $reply_counts );
+	}
+
+	/**
+	 * @covers ::bbp_get_single_topic_description
+	 */
+	public function test_bbp_get_single_topic_description_without_last_active_uses_reply_count_for_sentence_plural() {
+		$topic_id     = $this->factory->topic->create();
+		$reply_counts = array();
+		$single       = 'This topic has %1$s and %2$s.';
+		$filter       = function( $translation, $source_single, $source_plural, $number, $domain ) use ( &$reply_counts, $single ) {
+			if ( ( $single === $source_single ) && ( 'bbpress' === $domain ) ) {
+				$reply_counts[] = $number;
+				$translation    = 'Localized fallback ' . $number . ': %1$s and %2$s.';
+			}
+
+			return $translation;
+		};
+
+		update_post_meta( $topic_id, '_bbp_voice_count', 1 );
+		add_filter( 'bbp_get_topic_last_active_id', '__return_zero' );
+		add_filter( 'ngettext', $filter, 10, 5 );
+
+		try {
+			foreach ( array( 0, 1, 2 ) as $reply_count ) {
+				update_post_meta( $topic_id, '_bbp_reply_count', $reply_count );
+				$description = bbp_get_single_topic_description( array( 'topic_id' => $topic_id ) );
+				$this->assertStringContainsString( 'Localized fallback ' . $reply_count . ':', $description );
+			}
+		} finally {
+			remove_filter( 'ngettext', $filter, 10 );
+			remove_filter( 'bbp_get_topic_last_active_id', '__return_zero' );
+		}
+
+		$this->assertSame( array( 0, 1, 2 ), $reply_counts );
 	}
 
 	/**

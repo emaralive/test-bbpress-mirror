@@ -28,6 +28,7 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Allowed forum and topic descriptions to use locale-aware count grammar.
 - Completed every converter post-processing batch before reporting success,
   then flushed caches once after conversion.
 - Kept pending topics and replies visible to their authors on bbPress profiles.

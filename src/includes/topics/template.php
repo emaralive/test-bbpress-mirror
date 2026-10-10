@@ -3493,6 +3493,7 @@ function bbp_get_single_topic_description( $args = array() ) {
 
 	// Build the topic description
 	$vc_int      = bbp_get_topic_voice_count   ( $topic_id, true  );
+	$reply_int   = bbp_get_topic_reply_count   ( $topic_id, true  );
 	$voice_count = bbp_get_topic_voice_count   ( $topic_id, false );
 	$reply_count = bbp_get_topic_replies_link  ( $topic_id        );
 	$time_since  = bbp_get_topic_freshness_link( $topic_id        );
@@ -3510,13 +3511,30 @@ function bbp_get_single_topic_description( $args = array() ) {
 				'size'    => $r['size']
 			)
 		);
-			/* translators: 1: Reply count, 2: Voice count, 3: Last updated time, 4: Last updated by */
-			$retstr = sprintf( esc_html__( 'This topic has %1$s, %2$s, and was last updated %3$s by %4$s.', 'bbpress' ), $reply_count, $voice_count, $time_since, $last_updated_by );
+		/* translators: Plural form is selected by reply count. 1: Reply count, 2: Voice count, 3: Last updated time, 4: Last updated by */
+		$topic_description = _n(
+			'This topic has %1$s, %2$s, and was last updated %3$s by %4$s.',
+			'This topic has %1$s, %2$s, and was last updated %3$s by %4$s.',
+			$reply_int,
+			'bbpress'
+		);
+		$retstr = sprintf(
+			esc_html( $topic_description ),
+			$reply_count,
+			$voice_count,
+			$time_since,
+			$last_updated_by
+		);
 
 	// Topic has no replies
 	} elseif ( ! empty( $vc_int ) && ! empty( $reply_count ) ) {
-		/* translators: 1: Voice count, 2: Reply count */
-		$retstr = sprintf( esc_html__( 'This topic has %1$s and %2$s.', 'bbpress' ), $voice_count, $reply_count );
+		/* translators: Plural form is selected by reply count. 1: Voice count, 2: Reply count */
+		$topic_description = _n( 'This topic has %1$s and %2$s.', 'This topic has %1$s and %2$s.', $reply_int, 'bbpress' );
+		$retstr = sprintf(
+			esc_html( $topic_description ),
+			$voice_count,
+			$reply_count
+		);
 
 	// Topic has no replies and no voices
 	} elseif ( empty( $vc_int ) && empty( $reply_count ) ) {
