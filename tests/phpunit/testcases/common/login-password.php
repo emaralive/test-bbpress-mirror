@@ -9,6 +9,19 @@
 class BBP_Tests_Common_Login_Password extends BBP_UnitTestCase {
 
 	/**
+	 * The lost password template must require a username or email address.
+	 *
+	 * @ticket 3479
+	 */
+	public function test_lost_password_template_requires_user_login() {
+		ob_start();
+		include BBP_PLUGIN_DIR . 'templates/default/bbpress/form-user-lost-pass.php';
+		$output = ob_get_clean();
+
+		$this->assertMatchesRegularExpression( '/<input[^>]+name="user_login"[^>]+required="required"[^>]*>/', $output );
+	}
+
+	/**
 	 * The template must not copy request data into its password input.
 	 */
 	public function test_login_template_does_not_render_requested_password() {
