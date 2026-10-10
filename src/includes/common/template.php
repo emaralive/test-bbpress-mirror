@@ -1123,21 +1123,29 @@ function bbp_body_class( $wp_classes = array(), $custom_classes = false ) {
 		$bbp_classes[] = bbp_get_topic_post_type();
 	} elseif ( bbp_is_single_reply() ) {
 		$bbp_classes[] = bbp_get_reply_post_type();
-	} elseif ( bbp_is_topic_edit() ) {
-		$bbp_classes[] = bbp_get_topic_post_type() . '-edit';
 	} elseif ( bbp_is_topic_merge() ) {
 		$bbp_classes[] = bbp_get_topic_post_type() . '-merge';
+		$bbp_classes[] = bbp_get_topic_post_type() . '-edit';
 	} elseif ( bbp_is_topic_split() ) {
 		$bbp_classes[] = bbp_get_topic_post_type() . '-split';
-	} elseif ( bbp_is_reply_edit() ) {
-		$bbp_classes[] = bbp_get_reply_post_type() . '-edit';
+		$bbp_classes[] = bbp_get_topic_post_type() . '-edit';
+	} elseif ( bbp_is_topic_edit() ) {
+		$bbp_classes[] = bbp_get_topic_post_type() . '-edit';
 	} elseif ( bbp_is_reply_move() ) {
 		$bbp_classes[] = bbp_get_reply_post_type() . '-move';
+		$bbp_classes[] = bbp_get_reply_post_type() . '-edit';
+	} elseif ( bbp_is_reply_edit() ) {
+		$bbp_classes[] = bbp_get_reply_post_type() . '-edit';
 	} elseif ( bbp_is_single_view() ) {
 		$bbp_classes[] = 'bbp-view';
 		$bbp_classes[] = 'bbp-view-' . bbp_get_view_id();
 
 	/* User *******************************************************************/
+	} elseif ( bbp_is_user_home_edit() ) {
+		$bbp_classes[] = 'bbp-user-home-edit';
+		$bbp_classes[] = 'bbp-user-edit';
+		$bbp_classes[] = 'single';
+		$bbp_classes[] = 'singular';
 	} elseif ( bbp_is_single_user_edit() ) {
 		$bbp_classes[] = 'bbp-user-edit';
 		$bbp_classes[] = 'single';
@@ -1148,10 +1156,6 @@ function bbp_body_class( $wp_classes = array(), $custom_classes = false ) {
 		$bbp_classes[] = 'singular';
 	} elseif ( bbp_is_user_home() ) {
 		$bbp_classes[] = 'bbp-user-home';
-		$bbp_classes[] = 'single';
-		$bbp_classes[] = 'singular';
-	} elseif ( bbp_is_user_home_edit() ) {
-		$bbp_classes[] = 'bbp-user-home-edit';
 		$bbp_classes[] = 'single';
 		$bbp_classes[] = 'singular';
 	} elseif ( bbp_is_topics_created() ) {
@@ -1172,12 +1176,17 @@ function bbp_body_class( $wp_classes = array(), $custom_classes = false ) {
 		$bbp_classes[] = 'singular';
 
 	/* Search *****************************************************************/
-	} elseif ( bbp_is_search() ) {
-		$bbp_classes[] = 'bbp-search';
-		$bbp_classes[] = 'forum-search';
 	} elseif ( bbp_is_search_results() ) {
 		$bbp_classes[] = 'bbp-search-results';
 		$bbp_classes[] = 'forum-search-results';
+
+		if ( bbp_is_search() ) {
+			$bbp_classes[] = 'bbp-search';
+			$bbp_classes[] = 'forum-search';
+		}
+	} elseif ( bbp_is_search() ) {
+		$bbp_classes[] = 'bbp-search';
+		$bbp_classes[] = 'forum-search';
 
 	/* Shortcodes *************************************************************/
 	} elseif ( bbp_has_shortcode() ) {
