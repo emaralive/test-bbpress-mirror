@@ -2,6 +2,11 @@
 
 // Exercise cookie headers under the built-in web server rather than CLI SAPI.
 putenv( 'WP_TESTS_SKIP_INSTALL=1' );
+
+// The cli-server SAPI does not populate the PHPUnit bootstrap arguments.
+$_SERVER['argv'] = array( __FILE__ );
+$_SERVER['argc'] = 1;
+
 if ( '1' === getenv( 'BBP_TEST_MULTISITE' ) ) {
 	define( 'WP_TESTS_MULTISITE', true );
 }

@@ -41,7 +41,11 @@ echo "Loading WordPress via `wp-settings.php`...\n";
 require_once ABSPATH . '/wp-settings.php';
 
 // Fix fussy database settings
-$wpdb->query( 'SET storage_engine = INNODB' );
+if ( version_compare( $wpdb->db_version(), '5.5.3', '>=' ) ) {
+	$wpdb->query( 'SET default_storage_engine = INNODB' );
+} else {
+	$wpdb->query( 'SET storage_engine = INNODB' );
+}
 $wpdb->select( DB_NAME, $wpdb->dbh );
 
 // Install bbPress
