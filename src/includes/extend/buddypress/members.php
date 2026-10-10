@@ -170,14 +170,15 @@ class BBP_BuddyPress_Members {
 	 *
 	 * @since 2.3.0 bbPress (r4616)
 	 * @since 2.6.0 bbPress (r6320) Support all profile sections
+	 * @since 2.6.20 bbPress (r7925) Support all displayed profiles
 	 *
 	 * @global WP_Query $wp_query
-	 * @return If not viewing your own profile
+	 * @return void
 	 */
 	public function set_member_forum_query_vars() {
 
 		// Special handling for forum component
-		if ( ! bp_is_my_profile() ) {
+		if ( ! bp_is_user() ) {
 			return;
 		}
 
