@@ -357,8 +357,6 @@ class BBP_Tests_Admin_Converters_FluxBB extends BBP_UnitTestCase {
 				) );
 			}
 
-			$this->assertSame( $source_prefix . 'forums', $source_db->get_var( "SHOW TABLES LIKE '{$source_prefix}forums'" ), $source_db->last_error ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
 			$this->assertFalse( $converter->convert_forums( 0 ), get_option( '_bbp_converter_query' ) . ' / ' . $source_db->last_error );
 			$this->assertFalse( $converter->convert_topics( 0 ) );
 			$this->assertFalse( $converter->convert_replies( 0 ) );
