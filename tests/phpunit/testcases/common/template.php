@@ -1090,6 +1090,310 @@ class BBP_Tests_Common_Template extends BBP_UnitTestCase {
 		}
 	}
 
+	/**
+	 * @covers ::bbp_dropdown
+	 * @covers ::bbp_get_dropdown
+	 */
+	public function test_dropdown_renders_preloaded_hierarchy_and_passes_filter_context() {
+		$parent_id = $this->factory->forum->create( array( 'post_title' => 'Parent & Forum' ) );
+		$child_id  = $this->factory->forum->create(
+			array(
+				'post_parent' => $parent_id,
+				'post_title'  => 'Child Forum',
+			)
+		);
+		$args      = array(
+			'posts'              => array( get_post( $parent_id ), get_post( $child_id ) ),
+			'selected'           => $child_id,
+			'select_id'          => 'forum<selector',
+			'select_class'       => 'custom"class',
+			'tab'                => '7.8',
+			'show_none'          => 'Choose & Forum',
+			'disable_categories' => false,
+		);
+		$filter    = function( $html, $parsed_args, $original_args ) use ( $args, $child_id ) {
+			$this->assertSame( $args, $original_args );
+			$this->assertSame( $child_id, $parsed_args['selected'] );
+			$this->assertInstanceOf( 'BBP_Walker_Dropdown', $parsed_args['walker'] );
+
+			return $html . '<!-- filtered -->';
+		};
+
+		add_filter( 'bbp_get_dropdown', $filter, 10, 3 );
+
+		try {
+			$html = bbp_get_dropdown( $args );
+			$this->assertStringContainsString( '<select name="forum&lt;selector" id="forum&lt;selector" class="custom&quot;class" tabindex="7">', $html );
+			$this->assertStringContainsString( '<option value="" class="level-0">Choose &amp; Forum</option>', $html );
+			$this->assertStringContainsString( 'value="' . $parent_id . '">Parent &amp; Forum</option>', $html );
+			$this->assertStringContainsString( 'class="level-1" value="' . $child_id . '" selected=\'selected\'>&nbsp;&nbsp;&nbsp;Child Forum</option>', $html );
+			$this->assertStringEndsWith( '</select><!-- filtered -->', $html );
+
+			$this->expectOutputString( $html );
+			bbp_dropdown( $args );
+		} finally {
+			remove_filter( 'bbp_get_dropdown', $filter, 10 );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_get_dropdown
+	 */
+	public function test_dropdown_normalizes_arguments_and_supports_options_only() {
+		$topic_id = $this->factory->topic->create( array( 'post_title' => 'Only Topic' ) );
+		$args     = array(
+			'post_type'    => bbp_get_topic_post_type(),
+			'posts'        => array( get_post( $topic_id ) ),
+			'selected'     => -1,
+			'include'      => '1,2',
+			'exclude'      => '3,4',
+			'options_only' => true,
+			'show_none'    => true,
+		);
+		$filter   = function( $html, $parsed_args ) {
+			$this->assertSame( 0, $parsed_args['selected'] );
+			$this->assertSame( array( '1', '2' ), $parsed_args['include'] );
+			$this->assertSame( array( '3', '4' ), $parsed_args['exclude'] );
+
+			return $html;
+		};
+
+		add_filter( 'bbp_get_dropdown', $filter, 10, 2 );
+
+		try {
+			$html = bbp_get_dropdown( $args );
+			$this->assertStringNotContainsString( '<select', $html );
+			$this->assertStringNotContainsString( '</select>', $html );
+			$this->assertStringContainsString( 'No topics available', $html );
+			$this->assertStringContainsString( 'value="' . $topic_id . '">Only Topic</option>', $html );
+			$this->assertStringNotContainsString( 'selected', $html );
+		} finally {
+			remove_filter( 'bbp_get_dropdown', $filter, 10 );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_get_dropdown
+	 */
+	public function test_dropdown_disables_forum_categories_and_closed_forums() {
+		$category_id = $this->factory->forum->create(
+			array(
+				'post_title' => 'Category Forum',
+				'forum_meta' => array( 'forum_type' => 'category' ),
+			)
+		);
+		$closed_id   = $this->factory->forum->create( array( 'post_title' => 'Closed Forum' ) );
+		bbp_close_forum( $closed_id );
+
+		$html = bbp_get_dropdown(
+			array(
+				'posts'    => array( get_post( $category_id ), get_post( $closed_id ) ),
+				'selected' => $category_id,
+			)
+		);
+
+		$this->assertStringContainsString( '<option class="level-0" disabled="disabled" value="">Category Forum</option>', $html );
+		$this->assertStringContainsString( '<option class="level-0" disabled="disabled" value="">Closed Forum</option>', $html );
+		$this->assertStringNotContainsString( 'selected', $html );
+	}
+
+	/**
+	 * @covers ::bbp_the_content
+	 * @covers ::bbp_get_the_content
+	 */
+	public function test_the_content_renders_fallback_textarea_and_passes_filter_context() {
+		$args    = array(
+			'context'       => 'topic',
+			'before'        => '<section>',
+			'after'         => '</section>',
+			'textarea_rows' => 5,
+			'tabindex'      => 8,
+			'editor_class'  => 'custom-editor',
+		);
+		$content = function() {
+			return 'Topic &amp; content';
+		};
+		$filter  = function( $html, $original_args, $post_content ) use ( $args ) {
+			$this->assertSame( $args, $original_args );
+			$this->assertSame( 'Topic &amp; content', $post_content );
+
+			return $html . '<!-- filtered -->';
+		};
+
+		add_filter( 'bbp_use_wp_editor', '__return_false' );
+		add_filter( 'bbp_get_form_topic_content', $content, 99 );
+		add_filter( 'bbp_get_the_content', $filter, 10, 3 );
+
+		try {
+			$html = bbp_get_the_content( $args );
+			$this->assertStringStartsWith( '<section>', trim( $html ) );
+			$this->assertStringContainsString( '<textarea id="bbp_topic_content" class="custom-editor" name="bbp_topic_content" cols="60" rows="5"  tabindex="8">Topic &amp; content</textarea>', $html );
+			$this->assertStringEndsWith( '</section><!-- filtered -->', trim( $html ) );
+
+			$this->expectOutputString( $html );
+			bbp_the_content( $args );
+		} finally {
+			remove_filter( 'bbp_get_the_content', $filter, 10 );
+			remove_filter( 'bbp_get_form_topic_content', $content, 99 );
+			remove_filter( 'bbp_use_wp_editor', '__return_false' );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_get_the_content
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_the_content_configures_editor_hooks_and_removes_textarea_escaping() {
+		$plugins_seen  = false;
+		$buttons_seen  = false;
+		$quicktags_seen = false;
+		$content        = function() {
+			return 'Editor content';
+		};
+		$plugins_probe  = function( $plugins, $editor_id ) use ( &$plugins_seen ) {
+			$plugins_seen = true;
+			$this->assertSame( 'bbp_topic_content', $editor_id );
+			$this->assertNotContains( 'fullscreen', $plugins );
+			$this->assertContains( 'tabfocus', $plugins );
+
+			return $plugins;
+		};
+		$buttons_probe  = function( $buttons ) use ( &$buttons_seen ) {
+			$buttons_seen = true;
+			$this->assertNotContains( 'underline', $buttons );
+			$this->assertNotContains( 'justifycenter', $buttons );
+			$this->assertContains( 'image', $buttons );
+
+			return $buttons;
+		};
+		$quicktags_probe = function( $settings, $editor_id ) use ( &$quicktags_seen ) {
+			$quicktags_seen = true;
+			$this->assertSame( 'bbp_topic_content', $editor_id );
+			$buttons = explode( ',', $settings['buttons'] );
+			$this->assertNotContains( 'ins', $buttons );
+			$this->assertNotContains( 'more', $buttons );
+			$this->assertNotContains( 'spell', $buttons );
+
+			return $settings;
+		};
+
+		add_filter( 'bbp_use_wp_editor', '__return_true' );
+		add_filter( 'user_can_richedit', '__return_true' );
+		add_filter( 'bbp_get_form_topic_content', $content, 99 );
+		add_filter( 'teeny_mce_plugins', $plugins_probe, 20, 2 );
+		add_filter( 'teeny_mce_buttons', $buttons_probe, 20 );
+		add_filter( 'quicktags_settings', $quicktags_probe, 20, 2 );
+		$this->assertNotFalse( has_filter( 'bbp_get_form_forum_content', 'esc_textarea' ) );
+		$this->assertNotFalse( has_filter( 'bbp_get_form_topic_content', 'esc_textarea' ) );
+		$this->assertNotFalse( has_filter( 'bbp_get_form_reply_content', 'esc_textarea' ) );
+
+		$html = bbp_get_the_content(
+			array(
+				'context'   => 'topic',
+				'tinymce'  => true,
+				'teeny'     => true,
+				'quicktags' => true,
+			)
+		);
+
+		$this->assertStringContainsString( 'id="wp-bbp_topic_content-wrap"', $html );
+		$this->assertStringContainsString( 'id="bbp_topic_content"', $html );
+		$this->assertStringContainsString( '>Editor content</textarea>', $html );
+		$this->assertTrue( $plugins_seen );
+		$this->assertTrue( $buttons_seen );
+		$this->assertTrue( $quicktags_seen );
+		$this->assertFalse( has_filter( 'tiny_mce_plugins', 'bbp_get_tiny_mce_plugins' ) );
+		$this->assertFalse( has_filter( 'teeny_mce_plugins', 'bbp_get_tiny_mce_plugins' ) );
+		$this->assertFalse( has_filter( 'teeny_mce_buttons', 'bbp_get_teeny_mce_buttons' ) );
+		$this->assertFalse( has_filter( 'quicktags_settings', 'bbp_get_quicktags_settings' ) );
+		$this->assertFalse( has_filter( 'bbp_get_form_forum_content', 'esc_textarea' ) );
+		$this->assertFalse( has_filter( 'bbp_get_form_topic_content', 'esc_textarea' ) );
+		$this->assertFalse( has_filter( 'bbp_get_form_reply_content', 'esc_textarea' ) );
+	}
+
+	/**
+	 * @covers ::bbp_get_tiny_mce_plugins
+	 */
+	public function test_tiny_mce_plugins_replaces_fullscreen_with_tabfocus_and_applies_filter() {
+		$filter = function( $plugins ) {
+			$this->assertSame( array( 0 => 'link', 2 => 'code', 3 => 'tabfocus' ), $plugins );
+
+			$plugins[] = 'filtered-plugin';
+
+			return $plugins;
+		};
+
+		add_filter( 'bbp_get_tiny_mce_plugins', $filter );
+
+		try {
+			$this->assertSame(
+				array( 0 => 'link', 2 => 'code', 3 => 'tabfocus', 4 => 'filtered-plugin' ),
+				bbp_get_tiny_mce_plugins( array( 'link', 'fullscreen', 'code' ) )
+			);
+		} finally {
+			remove_filter( 'bbp_get_tiny_mce_plugins', $filter );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_get_teeny_mce_buttons
+	 */
+	public function test_teeny_mce_buttons_removes_alignment_adds_image_and_applies_filter() {
+		$filter = function( $buttons ) {
+			$this->assertSame( array( 0 => 'bold', 3 => 'link', 4 => 'image' ), $buttons );
+
+			$buttons[] = 'filtered-button';
+
+			return $buttons;
+		};
+
+		add_filter( 'bbp_get_teeny_mce_buttons', $filter );
+
+		try {
+			$this->assertSame(
+				array( 0 => 'bold', 3 => 'link', 4 => 'image', 5 => 'filtered-button' ),
+				bbp_get_teeny_mce_buttons( array( 'bold', 'underline', 'justifycenter', 'link' ) )
+			);
+		} finally {
+			remove_filter( 'bbp_get_teeny_mce_buttons', $filter );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_get_quicktags_settings
+	 */
+	public function test_quicktags_settings_removes_buttons_preserves_settings_and_applies_filter() {
+		$filter = function( $settings ) {
+			$this->assertSame( 'strong,em,link', $settings['buttons'] );
+			$this->assertSame( 42, $settings['id'] );
+
+			$settings['filtered'] = true;
+
+			return $settings;
+		};
+
+		add_filter( 'bbp_get_quicktags_settings', $filter );
+
+		try {
+			$this->assertSame(
+				array(
+					'buttons'  => 'strong,em,link',
+					'id'       => 42,
+					'filtered' => true,
+				),
+				bbp_get_quicktags_settings(
+					array(
+						'buttons' => 'strong,ins,em,more,spell,link',
+						'id'      => 42,
+					)
+				)
+			);
+		} finally {
+			remove_filter( 'bbp_get_quicktags_settings', $filter );
+		}
+	}
+
 	public static function body_class_specific_state_provider() {
 		return array(
 			'topic merge' => array(
