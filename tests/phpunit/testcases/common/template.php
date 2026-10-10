@@ -583,6 +583,266 @@ class BBP_Tests_Common_Template extends BBP_UnitTestCase {
 		);
 	}
 
+	/**
+	 * @covers ::bbp_is_topic_tag
+	 * @covers ::bbp_is_topic_tag_edit
+	 */
+	public function test_topic_tag_predicates_use_query_state_and_respect_feature_setting() {
+		$wp_query      = bbp_get_wp_query();
+		$query_var     = 'bbp_topic_tag';
+		$edit_property = 'bbp_is_topic_tag_edit';
+		$had_query_var = array_key_exists( $query_var, $wp_query->query_vars );
+		$old_query_var = $had_query_var ? $wp_query->query_vars[ $query_var ] : null;
+		$had_edit      = property_exists( $wp_query, $edit_property );
+		$old_edit      = $had_edit ? $wp_query->{$edit_property} : null;
+
+		add_filter( 'bbp_allow_topic_tags', '__return_true' );
+
+		try {
+			$wp_query->set( $query_var, '' );
+			$wp_query->{$edit_property} = false;
+			$this->assertFalse( bbp_is_topic_tag() );
+			$this->assertFalse( bbp_is_topic_tag_edit() );
+
+			$wp_query->set( $query_var, 'unit-test-tag' );
+			$this->assertTrue( bbp_is_topic_tag() );
+			add_filter( 'bbp_is_topic_tag', '__return_false' );
+			$this->assertFalse( bbp_is_topic_tag() );
+			remove_filter( 'bbp_is_topic_tag', '__return_false' );
+
+			$wp_query->{$edit_property} = 1;
+			$this->assertFalse( bbp_is_topic_tag_edit() );
+
+			$wp_query->{$edit_property} = true;
+			$this->assertTrue( bbp_is_topic_tag_edit() );
+			add_filter( 'bbp_is_topic_tag_edit', '__return_false' );
+			$this->assertFalse( bbp_is_topic_tag_edit() );
+			remove_filter( 'bbp_is_topic_tag_edit', '__return_false' );
+			$this->assertFalse( bbp_is_topic_tag() );
+
+			add_filter( 'bbp_allow_topic_tags', '__return_false', 20 );
+			$this->assertFalse( bbp_is_topic_tag() );
+			$this->assertFalse( bbp_is_topic_tag_edit() );
+		} finally {
+			remove_filter( 'bbp_is_topic_tag_edit', '__return_false' );
+			remove_filter( 'bbp_is_topic_tag', '__return_false' );
+			remove_filter( 'bbp_allow_topic_tags', '__return_false', 20 );
+			remove_filter( 'bbp_allow_topic_tags', '__return_true' );
+			if ( $had_query_var ) {
+				$wp_query->set( $query_var, $old_query_var );
+			} else {
+				unset( $wp_query->query_vars[ $query_var ] );
+			}
+			if ( $had_edit ) {
+				$wp_query->{$edit_property} = $old_edit;
+			} else {
+				unset( $wp_query->{$edit_property} );
+			}
+		}
+	}
+
+	/**
+	 * @covers ::bbp_is_topic_tag
+	 * @covers ::bbp_is_topic_tag_edit
+	 */
+	public function test_topic_tag_predicate_filters_can_override_query_state() {
+		$tag_filter  = '__return_true';
+		$edit_filter = '__return_true';
+
+		add_filter( 'bbp_allow_topic_tags', '__return_true' );
+		add_filter( 'bbp_is_topic_tag', $tag_filter );
+
+		try {
+			$this->assertTrue( bbp_is_topic_tag() );
+			remove_filter( 'bbp_is_topic_tag', $tag_filter );
+			add_filter( 'bbp_is_topic_tag_edit', $edit_filter );
+			$this->assertTrue( bbp_is_topic_tag_edit() );
+		} finally {
+			remove_filter( 'bbp_is_topic_tag_edit', $edit_filter );
+			remove_filter( 'bbp_is_topic_tag', $tag_filter );
+			remove_filter( 'bbp_allow_topic_tags', '__return_true' );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_is_search
+	 * @covers ::bbp_is_search_results
+	 */
+	public function test_search_predicates_use_query_name_query_state_and_request() {
+		$wp_query       = bbp_get_wp_query();
+		$rewrite_id     = bbp_get_search_rewrite_id();
+		$old_name       = bbp_get_query_name();
+		$old_request    = $_REQUEST;
+		$search_states  = array(
+			'bbp_is_search'    => property_exists( $wp_query, 'bbp_is_search' ) ? $wp_query->bbp_is_search : null,
+			'bbp_search_terms' => property_exists( $wp_query, 'bbp_search_terms' ) ? $wp_query->bbp_search_terms : null,
+		);
+		$search_exists  = array(
+			'bbp_is_search'    => property_exists( $wp_query, 'bbp_is_search' ),
+			'bbp_search_terms' => property_exists( $wp_query, 'bbp_search_terms' ),
+		);
+
+		add_filter( 'bbp_allow_search', '__return_true' );
+
+		try {
+			bbp_reset_query_name();
+			$wp_query->bbp_is_search    = false;
+			$wp_query->bbp_search_terms = '';
+			unset( $_REQUEST[ $rewrite_id ] );
+			$this->assertFalse( bbp_is_search() );
+			$this->assertFalse( bbp_is_search_results() );
+
+			$wp_query->bbp_is_search = 1;
+			$this->assertFalse( bbp_is_search() );
+
+			$wp_query->bbp_is_search = true;
+			$this->assertTrue( bbp_is_search() );
+
+			$wp_query->bbp_is_search = false;
+			bbp_set_query_name( $rewrite_id );
+			$this->assertTrue( bbp_is_search() );
+
+			bbp_reset_query_name();
+			$_REQUEST[ $rewrite_id ] = '';
+			$this->assertTrue( bbp_is_search() );
+
+			unset( $_REQUEST[ $rewrite_id ] );
+			$wp_query->bbp_search_terms = 'query terms';
+			$this->assertTrue( bbp_is_search_results() );
+
+			$wp_query->bbp_search_terms = '';
+			bbp_set_query_name( 'bbp_search_results' );
+			$this->assertTrue( bbp_is_search_results() );
+
+			bbp_reset_query_name();
+			$_REQUEST[ $rewrite_id ] = 'request terms';
+			$this->assertTrue( bbp_is_search_results() );
+		} finally {
+			remove_filter( 'bbp_allow_search', '__return_true' );
+			bbp_set_query_name( $old_name );
+			$_REQUEST = $old_request;
+			foreach ( $search_states as $property => $value ) {
+				if ( $search_exists[ $property ] ) {
+					$wp_query->{$property} = $value;
+				} else {
+					unset( $wp_query->{$property} );
+				}
+			}
+		}
+	}
+
+	/**
+	 * @covers ::bbp_is_search
+	 * @covers ::bbp_is_search_results
+	 */
+	public function test_search_predicates_respect_feature_setting_and_filters() {
+		$wp_query      = bbp_get_wp_query();
+		$search_exists = property_exists( $wp_query, 'bbp_is_search' );
+		$results_exist = property_exists( $wp_query, 'bbp_search_terms' );
+		$old_search    = $search_exists ? $wp_query->bbp_is_search : null;
+		$old_results   = $results_exist ? $wp_query->bbp_search_terms : null;
+
+		try {
+			$wp_query->bbp_is_search    = true;
+			$wp_query->bbp_search_terms = 'query terms';
+			add_filter( 'bbp_allow_search', '__return_true' );
+			add_filter( 'bbp_is_search', '__return_false' );
+			add_filter( 'bbp_is_search_results', '__return_false' );
+
+			$this->assertFalse( bbp_is_search() );
+			$this->assertFalse( bbp_is_search_results() );
+
+			remove_filter( 'bbp_is_search', '__return_false' );
+			remove_filter( 'bbp_is_search_results', '__return_false' );
+			add_filter( 'bbp_allow_search', '__return_false', 20 );
+			add_filter( 'bbp_is_search', '__return_true' );
+			add_filter( 'bbp_is_search_results', '__return_true' );
+			$this->assertFalse( bbp_is_search() );
+			$this->assertFalse( bbp_is_search_results() );
+		} finally {
+			remove_filter( 'bbp_is_search_results', '__return_true' );
+			remove_filter( 'bbp_is_search', '__return_true' );
+			remove_filter( 'bbp_allow_search', '__return_false', 20 );
+			remove_filter( 'bbp_is_search_results', '__return_false' );
+			remove_filter( 'bbp_is_search', '__return_false' );
+			remove_filter( 'bbp_allow_search', '__return_true' );
+			if ( $search_exists ) {
+				$wp_query->bbp_is_search = $old_search;
+			} else {
+				unset( $wp_query->bbp_is_search );
+			}
+			if ( $results_exist ) {
+				$wp_query->bbp_search_terms = $old_results;
+			} else {
+				unset( $wp_query->bbp_search_terms );
+			}
+		}
+	}
+
+	/**
+	 * @covers ::bbp_has_shortcode
+	 */
+	public function test_has_shortcode_detects_registered_codes_and_passes_filter_context() {
+		$codes = array_keys( bbpress()->shortcodes->codes );
+		$this->assertGreaterThanOrEqual( 2, count( $codes ) );
+
+		$found_codes = array_slice( $codes, 0, 2 );
+		$text        = 'Before [' . $found_codes[0] . '] between [' . $found_codes[1] . '] after';
+		$called = 0;
+		$filter = function( $retval, $found, $filtered_text ) use ( &$called, $found_codes, $text ) {
+			++$called;
+			$this->assertTrue( $retval );
+			$this->assertSame( $found_codes, $found );
+			$this->assertSame( $text, $filtered_text );
+			return false;
+		};
+
+		$this->assertFalse( bbp_has_shortcode( '' ) );
+		$this->assertFalse( bbp_has_shortcode( '[gallery]' ) );
+		$this->assertFalse( bbp_has_shortcode( '[bbp-not-registered]' ) );
+		$this->assertTrue( bbp_has_shortcode( $text ) );
+
+		add_filter( 'bbp_has_shortcode', $filter, 10, 3 );
+		try {
+			$this->assertFalse( bbp_has_shortcode( $text ) );
+			$this->assertSame( 1, $called );
+		} finally {
+			remove_filter( 'bbp_has_shortcode', $filter, 10 );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_has_shortcode
+	 */
+	public function test_has_shortcode_uses_singular_global_post_content() {
+		global $post;
+
+		$codes        = array_keys( bbpress()->shortcodes->codes );
+		$code         = reset( $codes );
+		$post_id      = $this->factory->post->create(
+			array( 'post_content' => '[' . $code . ']' )
+		);
+		$plain_id     = $this->factory->post->create( array( 'post_content' => 'No shortcode' ) );
+		$old_post     = $post;
+		$wp_query     = bbp_get_wp_query();
+		$old_singular = $wp_query->is_singular;
+
+		try {
+			$post                  = get_post( $post_id );
+			$wp_query->is_singular = false;
+			$this->assertFalse( bbp_has_shortcode() );
+
+			$wp_query->is_singular = true;
+			$this->assertTrue( bbp_has_shortcode() );
+
+			$post = get_post( $plain_id );
+			$this->assertFalse( bbp_has_shortcode() );
+		} finally {
+			$post                  = $old_post;
+			$wp_query->is_singular = $old_singular;
+		}
+	}
+
 	private function create_bbp_post( $factory_name ) {
 		if ( 'reply' === $factory_name ) {
 			$topic_id = $this->factory->topic->create();
