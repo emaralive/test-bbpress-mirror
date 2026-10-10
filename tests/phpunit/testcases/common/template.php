@@ -913,6 +913,183 @@ class BBP_Tests_Common_Template extends BBP_UnitTestCase {
 		}
 	}
 
+	/**
+	 * @covers ::bbp_body_class
+	 */
+	public function test_body_class_passes_filter_context() {
+		$wp_classes     = array( 'wp-class' );
+		$custom_classes = array( 'custom-class' );
+		$deprecated     = function( $classes, $bbp_classes, $filtered_wp_classes, $filtered_custom_classes ) use ( $wp_classes, $custom_classes ) {
+			$this->assertContains( bbp_get_forum_post_type() . '-archive', $bbp_classes );
+			$this->assertSame( $wp_classes, $filtered_wp_classes );
+			$this->assertSame( $custom_classes, $filtered_custom_classes );
+			$classes[] = 'deprecated-filter';
+
+			return $classes;
+		};
+		$current        = function( $classes, $bbp_classes, $filtered_wp_classes, $filtered_custom_classes ) use ( $wp_classes, $custom_classes ) {
+			$this->assertContains( 'deprecated-filter', $classes );
+			$this->assertContains( bbp_get_forum_post_type() . '-archive', $bbp_classes );
+			$this->assertSame( $wp_classes, $filtered_wp_classes );
+			$this->assertSame( $custom_classes, $filtered_custom_classes );
+			$classes[] = 'current-filter';
+
+			return $classes;
+		};
+
+		add_filter( 'bbp_is_forum_archive', '__return_true' );
+		add_filter( 'bbp_get_the_body_class', $deprecated, 10, 4 );
+		add_filter( 'bbp_body_class', $current, 10, 4 );
+
+		try {
+			$classes = bbp_body_class( $wp_classes, $custom_classes );
+			$this->assertContains( 'deprecated-filter', $classes );
+			$this->assertContains( 'current-filter', $classes );
+		} finally {
+			remove_filter( 'bbp_body_class', $current, 10 );
+			remove_filter( 'bbp_get_the_body_class', $deprecated, 10 );
+			remove_filter( 'bbp_is_forum_archive', '__return_true' );
+		}
+	}
+
+	/**
+	 * @covers ::is_bbpress
+	 */
+	public function test_is_bbpress_uses_conditional_and_applies_filter() {
+		$filter = function( $is_bbpress ) {
+			$this->assertTrue( $is_bbpress );
+
+			return false;
+		};
+
+		add_filter( 'bbp_is_forum_archive', '__return_true' );
+
+		try {
+			$this->assertTrue( is_bbpress() );
+
+			add_filter( 'is_bbpress', $filter );
+			$this->assertFalse( is_bbpress() );
+		} finally {
+			remove_filter( 'is_bbpress', $filter );
+			remove_filter( 'bbp_is_forum_archive', '__return_true' );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_wp_login_action
+	 * @covers ::bbp_get_wp_login_action
+	 */
+	public function test_wp_login_action_builds_filters_and_outputs_url() {
+		$args     = array(
+			'action'  => 'resetpass',
+			'context' => 'login',
+			'url'     => 'custom-login.php',
+		);
+		$expected = site_url( 'custom-login.php?action=resetpass', 'login' );
+		$filter   = function( $url, $parsed_args, $original_args ) use ( $expected, $args ) {
+			$this->assertSame( $expected, $url );
+			$this->assertSame( $args, $parsed_args );
+			$this->assertSame( $args, $original_args );
+
+			return add_query_arg( 'filtered', 'yes', $url );
+		};
+
+		$this->assertSame( site_url( 'wp-login.php' ), bbp_get_wp_login_action() );
+		add_filter( 'bbp_get_wp_login_action', $filter, 10, 3 );
+
+		try {
+			$filtered = add_query_arg( 'filtered', 'yes', $expected );
+			$this->assertSame( $filtered, bbp_get_wp_login_action( $args ) );
+			$this->expectOutputString( esc_url( $filtered ) );
+			bbp_wp_login_action( $args );
+		} finally {
+			remove_filter( 'bbp_get_wp_login_action', $filter, 10 );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_redirect_to_field
+	 */
+	public function test_redirect_to_field_removes_loggedout_and_passes_filter_context() {
+		$url      = 'https://example.org/forums/?loggedout=true&topic=123';
+		$redirect = remove_query_arg( 'loggedout', $url );
+		$field    = '<input type="hidden" id="bbp_redirect_to" name="redirect_to" value="' . esc_url( $redirect ) . '" />';
+		$filter   = function( $redirect_field, $redirect_to ) use ( $field, $redirect ) {
+			$this->assertSame( $field, $redirect_field );
+			$this->assertSame( $redirect, $redirect_to );
+
+			return str_replace( ' />', ' data-filtered="true" />', $redirect_field );
+		};
+
+		add_filter( 'bbp_redirect_to_field', $filter, 10, 2 );
+
+		try {
+			$this->expectOutputString( str_replace( ' />', ' data-filtered="true" />', $field ) );
+			bbp_redirect_to_field( $url );
+		} finally {
+			remove_filter( 'bbp_redirect_to_field', $filter, 10 );
+		}
+	}
+
+	/**
+	 * @covers ::bbp_sanitize_val
+	 * @covers ::bbp_get_sanitize_val
+	 */
+	public function test_sanitize_val_handles_input_types_and_passes_filter_context() {
+		$old_request       = $_REQUEST;
+		$_REQUEST['field'] = wp_slash( 'A & "quoted" value' );
+		$text_value        = esc_attr( 'A & "quoted" value' );
+		$raw_value         = esc_attr( $_REQUEST['field'] );
+		$filter            = function( $value, $request, $input_type ) use ( $text_value ) {
+			$this->assertSame( $text_value, $value );
+			$this->assertSame( 'field', $request );
+			$this->assertSame( 'textarea', $input_type );
+
+			return $value . '-filtered';
+		};
+
+		try {
+			$this->assertFalse( bbp_get_sanitize_val( 'missing' ) );
+			$this->assertSame( $text_value, bbp_get_sanitize_val( 'field' ) );
+			$this->assertSame( $raw_value, bbp_get_sanitize_val( 'field', 'password' ) );
+
+			add_filter( 'bbp_get_sanitize_val', $filter, 10, 3 );
+			$this->assertSame( $text_value . '-filtered', bbp_get_sanitize_val( 'field', 'textarea' ) );
+			$this->expectOutputString( $text_value . '-filtered' );
+			bbp_sanitize_val( 'field', 'textarea' );
+		} finally {
+			remove_filter( 'bbp_get_sanitize_val', $filter, 10 );
+			$_REQUEST = $old_request;
+		}
+	}
+
+	/**
+	 * @covers ::bbp_tab_index_attribute
+	 * @covers ::bbp_get_tab_index_attribute
+	 */
+	public function test_tab_index_attribute_handles_values_filter_and_output() {
+		$filter = function( $attribute, $tab ) {
+			$this->assertSame( ' tabindex="8"', $attribute );
+			$this->assertSame( '8.9', $tab );
+
+			return ' data-tabindex="8"';
+		};
+
+		$this->assertSame( '', bbp_get_tab_index_attribute() );
+		$this->assertSame( '', bbp_get_tab_index_attribute( 'invalid' ) );
+		$this->assertSame( ' tabindex="0"', bbp_get_tab_index_attribute( 0 ) );
+
+		add_filter( 'bbp_get_tab_index_attribute', $filter, 10, 2 );
+
+		try {
+			$this->assertSame( ' data-tabindex="8"', bbp_get_tab_index_attribute( '8.9' ) );
+			$this->expectOutputString( ' data-tabindex="8"' );
+			bbp_tab_index_attribute( '8.9' );
+		} finally {
+			remove_filter( 'bbp_get_tab_index_attribute', $filter, 10 );
+		}
+	}
+
 	public static function body_class_specific_state_provider() {
 		return array(
 			'topic merge' => array(
