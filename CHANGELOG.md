@@ -29,6 +29,9 @@ Development for the next bbPress release is in progress. See the active
 ### Fixed
 
 - Restored favorite and subscription removal from BuddyPress member profiles.
+- Restored specific body classes for topic merging and splitting, reply moving,
+  current-user profile editing, and forum search results while preserving their
+  existing general classes.
 - Allowed forum and topic descriptions to use locale-aware count grammar.
 - Completed every converter post-processing batch before reporting success,
   then flushed caches once after conversion.
