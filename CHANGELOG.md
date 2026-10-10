@@ -28,6 +28,8 @@ Development for the next bbPress release is in progress. See the active
 
 ### Fixed
 
+- Imported FluxBB replies without duplicating topic starters and preserved the
+  source forum and topic reply counts.
 - Restored favorite and subscription removal from BuddyPress member profiles.
 - Restored specific body classes for topic merging and splitting, reply moving,
   current-user profile editing, and forum search results while preserving their
